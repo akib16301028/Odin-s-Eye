@@ -1,15 +1,18 @@
 import pandas as pd
 import streamlit as st
+import re
+from io import BytesIO
+from datetime import datetime
 
 # Function to compare site names and show missing sites with Site Alias, Zone, and Cluster
 def compare_sites(rms_df, site_access_df):
-    # Extract site names from RMS (row 3, column B)
-    rms_sites = rms_df.iloc[2:, 1].dropna().str.split('_').str[0].reset_index(drop=True)  # Site names
-    rms_alias = rms_df.iloc[2:, 2].dropna().reset_index(drop=True)  # Site Alias from column C
-    rms_zone = rms_df.iloc[2:, 3].dropna().reset_index(drop=True)   # Zone from column D
-    rms_cluster = rms_df.iloc[2:, 4].dropna().reset_index(drop=True) # Cluster from column E
+    # Extract site names from RMS (assuming 'SiteName' is in column B (index 1))
+    rms_sites = rms_df.iloc[:, 1].dropna().str.split('_').str[0].reset_index(drop=True)  # Site names
+    rms_alias = rms_df.iloc[:, 2].dropna().reset_index(drop=True)  # Site Alias from column C
+    rms_zone = rms_df.iloc[:, 3].dropna().reset_index(drop=True)   # Zone from column D
+    rms_cluster = rms_df.iloc[:, 4].dropna().reset_index(drop=True) # Cluster from column E
 
-    # Extract site names from Site Access Portal (Column D, header 'SiteName')
+    # Extract site names from Site Access Portal (assuming 'SiteName' is in column D (index 3))
     site_access_sites = site_access_df['SiteName'].str.split('_').str[0]
 
     # Find missing sites (in RMS but not in Site Access Portal)
@@ -54,20 +57,30 @@ def display_cluster_wise_data(df):
             # Display the data in a table
             st.table(zone_data[['Site Alias', 'Count']])
 
+# Function to convert multiple DataFrames to Excel with separate sheets
+def to_excel(dfs_dict):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        for sheet_name, df in dfs_dict.items():
+            # Clean sheet name to avoid issues
+            valid_sheet_name = re.sub(r'[\\/*?:[\]]', '_', sheet_name)[:31]
+            df.to_excel(writer, sheet_name=valid_sheet_name, index=False)
+    return output.getvalue()
+
 # Main function for the Streamlit app
 def main():
     st.title("📋 Site Comparison Tool")
     
     st.sidebar.header("Upload Files for Site Comparison")
-    uploaded_rms_file = st.sidebar.file_uploader("Upload RMS Excel File", type=["xlsx", "xls"])
-    uploaded_site_access_file = st.sidebar.file_uploader("Upload Site Access Portal Excel File", type=["xlsx", "xls"])
+    uploaded_rms_file = st.sidebar.file_uploader("Upload RMS CSV File", type=["csv"])
+    uploaded_site_access_file = st.sidebar.file_uploader("Upload Site Access Portal CSV File", type=["csv"])
     
     if st.sidebar.button("Compare Sites"):
         if uploaded_rms_file is not None and uploaded_site_access_file is not None:
             try:
-                # Read the uploaded files using openpyxl engine
-                rms_df = pd.read_excel(uploaded_rms_file, header=2, engine='openpyxl')  # Header starts from row 3
-                site_access_df = pd.read_excel(uploaded_site_access_file, engine='openpyxl')
+                # Read the uploaded CSV files
+                rms_df = pd.read_csv(uploaded_rms_file)
+                site_access_df = pd.read_csv(uploaded_site_access_file)
                 
                 # Compare and find missing sites
                 missing_sites_df = compare_sites(rms_df, site_access_df)
@@ -84,15 +97,6 @@ def main():
                     display_cluster_wise_data(missing_sites_df)
                     
                     # Provide a download button for the comparison report
-                    def to_excel(dfs_dict):
-                        output = BytesIO()
-                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                            for sheet_name, df in dfs_dict.items():
-                                valid_sheet_name = re.sub(r'[\\/*?:[\]]', '_', sheet_name)[:31]
-                                df.to_excel(writer, sheet_name=valid_sheet_name, index=False)
-                        processed_data = output.getvalue()
-                        return processed_data
-
                     comparison_report = {
                         "Missing Sites": missing_sites_df,
                         "Cluster-wise Grouped Data": group_cluster_zone_data(missing_sites_df)
@@ -105,12 +109,10 @@ def main():
                         file_name=f"Site_Comparison_Report_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
-            except ImportError as ie:
-                st.error("🔴 Missing required dependencies. Please ensure 'openpyxl' is installed.")
             except Exception as e:
                 st.error(f"🔴 An error occurred while processing the files: {e}")
         else:
-            st.error("🔴 Please upload both the RMS and Site Access Portal Excel files.")
+            st.error("🔴 Please upload both the RMS and Site Access Portal CSV files.")
 
 if __name__ == "__main__":
     main()
