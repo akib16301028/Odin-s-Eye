@@ -21,38 +21,32 @@ def extract_site_name(portal_site_name):
     Extracts the site name from the Site Access Portal Log's SiteName column.
     Rules:
         - If SiteName is 'ABCDEF_anystring', extract 'anystring'
-        - If SiteName is 'ABCDEF_anystring_X1234', extract 'anystring1234'
-        - If the letter after the second underscore is any letter (A-Z),
-          it will be concatenated with the rest of the string.
+        - If SiteName is 'ABCDEF_anystring_X1234' or 'ABCDEF_anystring_A1234', extract 'anystring_X1234' or 'anystring_A1234'
+          (i.e., preserve the letter after the second underscore)
     Examples:
-        'SBCMNGK001_DHK_X3170' -> 'DHK3170'
+        'SBCMNGK001_DHK_X3170' -> 'DHK_X3170'
         'SBCMNGK001_DHKU23' -> 'DHKU23'
-        'SBCMNGK001_DHK_A3170' -> 'DHKA3170'
+        'ABCDEF_anystring_A1234' -> 'ANYSTRING_A1234'
     """
     if pd.isna(portal_site_name):
         return None
     parts = portal_site_name.split('_')
-    
     if len(parts) == 2:
         # Format: 'ABCDEF_anystring' -> 'anystring'
         return parts[1].strip().upper()
-    
     elif len(parts) >= 3:
-        # Format: 'ABCDEF_anystring_X1234' or 'ABCDEF_anystring_A1234' -> 'anystring1234'
+        # Format: 'ABCDEF_anystring_X1234' or 'ABCDEF_anystring_A1234' -> 'anystring_X1234' or 'anystring_A1234'
         site_part = parts[1].strip().upper()
-        x_part = parts[2].strip()
-        
-        if len(x_part) > 1:
-            # Combine the second part (site_part) with the rest of the third part (x_part) regardless of the leading character
-            return (site_part + x_part).upper()
+        suffix_part = parts[2].strip()
+        if len(suffix_part) >= 1 and suffix_part[0].isalpha():
+            # Preserve the leading letter and concatenate
+            return f"{site_part}_{suffix_part}".upper()
         else:
-            # Just concatenate the two parts
-            return (site_part + x_part).upper()
-    
+            # Concatenate without modification
+            return f"{site_part}_{suffix_part}".upper()
     else:
         # Unexpected format, return the last part
         return parts[-1].strip().upper()
-
 
 # Function to find matched site names
 def find_matched_sites(portal_site_names, rms_site_names):
@@ -108,10 +102,6 @@ def main():
                 # Extract site names from Site Access Portal Log
                 portal_df['Extracted SiteName'] = portal_df['SiteName'].apply(extract_site_name)
                 portal_site_names = portal_df['Extracted SiteName'].dropna().unique()
-
-                # Debugging: Display extracted site names (optional)
-                # st.write("### Extracted RMS Site Names", rms_site_names)
-                # st.write("### Extracted Portal Site Names", portal_site_names)
 
                 # Find matched site names
                 matched_site_names = find_matched_sites(portal_site_names, rms_site_names)
@@ -192,19 +182,10 @@ def main():
             else:
                 filtered_display_df = pd.DataFrame(columns=['Site Alias', 'Cluster', 'Zone', 'Start Time', 'End Time'])
 
+            # Display Filtered Unmatched Site Logs
             st.header("📋 Filtered Unmatched Site Logs")
             st.write(f"**Showing {len(filtered_display_df)} record(s) after applying filters.**")
             st.dataframe(filtered_display_df)
-
-            # Optional: Download Filtered Data
-            if not filtered_display_df.empty:
-                csv = filtered_display_df.to_csv(index=False)
-                st.download_button(
-                    label="Download Filtered Logs as CSV",
-                    data=csv,
-                    file_name='filtered_unmatched_logs.csv',
-                    mime='text/csv',
-                )
 
         except Exception as e:
             st.error(f"An error occurred while processing the files: {e}")
