@@ -10,13 +10,13 @@ def extract_site_name(site_name):
     It looks for patterns like 'NGBND85' or 'KHU0628' within the string.
     """
     # Regular expression to match patterns like NGBND85 or KHU0628
-    match = re.search(r'[A-Z]{2,4}\d{4}', site_name)
+    match = re.search(r'[A-Z]{2,4}_?X?\d{4}', site_name)
     if match:
         return match.group()
     else:
         return None
 
-# Function to extract site name from 'Site Alias' in RMS Door Open Log
+# Function to extract site alias from 'Site Alias' in RMS Door Open Log
 def extract_site_alias(site_alias):
     """
     Extracts the site alias from the RMS Door Open Log's Site Alias column.
@@ -102,7 +102,7 @@ def main():
             # Date Range Filter
             min_date = display_df['Start Time'].min().date()
             max_date = display_df['Start Time'].max().date()
-            selected_date = st.sidebar.date_input("Select Date", [min_date, max_date])
+            selected_date = st.sidebar.date_input("Select Date Range", [min_date, max_date])
 
             if len(selected_date) != 2:
                 st.error("Please select a start and end date for the date range.")
