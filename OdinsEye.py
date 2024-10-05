@@ -7,28 +7,69 @@ def extract_site_alias(site_alias):
     """
     Extracts the site alias from the 'Site Alias' column.
     Assumes the format 'SITE123 (Description)' or similar.
+    Example:
+        'DHK3170 (BL)' -> 'DHK3170'
+        'DHKU23 (ROBI)' -> 'DHKU23'
     """
     if pd.isna(site_alias):
         return None
-    return site_alias.split(' ')[0].split('(')[0].strip()
+    return site_alias.split(' ')[0].split('(')[0].strip().upper()
 
-# Function to find matching site names in Site Access Portal Log
+# Function to extract site name from Site Access Portal Log's SiteName column
+def extract_site_name(portal_site_name):
+    """
+    Extracts the site name from the Site Access Portal Log's SiteName column.
+    Rules:
+        - If SiteName is 'ABCDEF_anystring', extract 'anystring'
+        - If SiteName is 'ABCDEF_anystring_X1234', extract 'anystring1234'
+        - If the letter after the second underscore is any letter (A-Z),
+          it will be concatenated with the rest of the string.
+    Examples:
+        'SBCMNGK001_DHK_X3170' -> 'DHK3170'
+        'SBCMNGK001_DHKU23' -> 'DHKU23'
+        'SBCMNGK001_DHK_A3170' -> 'DHKA3170'
+    """
+    if pd.isna(portal_site_name):
+        return None
+    parts = portal_site_name.split('_')
+    
+    if len(parts) == 2:
+        # Format: 'ABCDEF_anystring' -> 'anystring'
+        return parts[1].strip().upper()
+    
+    elif len(parts) >= 3:
+        # Format: 'ABCDEF_anystring_X1234' or 'ABCDEF_anystring_A1234' -> 'anystring1234'
+        site_part = parts[1].strip().upper()
+        x_part = parts[2].strip()
+        
+        if len(x_part) > 1:
+            # Combine the second part (site_part) with the rest of the third part (x_part) regardless of the leading character
+            return (site_part + x_part).upper()
+        else:
+            # Just concatenate the two parts
+            return (site_part + x_part).upper()
+    
+    else:
+        # Unexpected format, return the last part
+        return parts[-1].strip().upper()
+
+
+# Function to find matched site names
 def find_matched_sites(portal_site_names, rms_site_names):
     """
-    For each SiteName in the Site Access Portal Log, check if any RMS site name is a substring.
+    Compares site names from RMS and Site Access Portal logs.
     Returns a set of matched RMS site names.
     """
     matched_sites = set()
-    for portal_site in portal_site_names:
-        if pd.isna(portal_site):
-            continue
-        for rms_site in rms_site_names:
-            if rms_site in portal_site:
-                matched_sites.add(rms_site)
+    portal_site_set = set(portal_site_names)
+    for rms_site in rms_site_names:
+        if rms_site in portal_site_set:
+            matched_sites.add(rms_site)
     return matched_sites
 
 # Streamlit App
 def main():
+    st.set_page_config(page_title="📊 Site Log Comparator", layout="wide")
     st.title("📊 Site Log Comparator")
     st.write("""
     This application compares site names from the **RMS Door Open Log** and the **Site Access Portal Log** to identify unmatched sites.
@@ -46,61 +87,60 @@ def main():
             return
 
         try:
-            # Read RMS Door Open Log
-            rms_df = pd.read_excel(rms_file, skiprows=2)  # Skip first two rows
-            required_rms_columns = ['Site Alias', 'Cluster', 'Zone', 'Start Time', 'End Time']
-            if not all(col in rms_df.columns for col in required_rms_columns):
-                st.error(f"RMS Door Open Log must contain the following columns: {required_rms_columns}")
-                return
+            with st.spinner('Processing files...'):
+                # Read RMS Door Open Log
+                rms_df = pd.read_excel(rms_file, skiprows=2)  # Skip first two rows
+                required_rms_columns = ['Site Alias', 'Cluster', 'Zone', 'Start Time', 'End Time']
+                if not all(col in rms_df.columns for col in required_rms_columns):
+                    st.error(f"RMS Door Open Log must contain the following columns: {required_rms_columns}")
+                    return
 
-            # Clean and extract site aliases
-            rms_df['Site Alias Clean'] = rms_df['Site Alias'].apply(extract_site_alias)
-            rms_site_names = rms_df['Site Alias Clean'].dropna().unique()
+                # Clean and extract site aliases
+                rms_df['Site Alias Clean'] = rms_df['Site Alias'].apply(extract_site_alias)
+                rms_site_names = rms_df['Site Alias Clean'].dropna().unique()
 
-            # Read Site Access Portal Log
-            portal_df = pd.read_excel(portal_file)
-            if 'SiteName' not in portal_df.columns:
-                st.error("Site Access Portal Log must contain the 'SiteName' column.")
-                return
+                # Read Site Access Portal Log
+                portal_df = pd.read_excel(portal_file)
+                if 'SiteName' not in portal_df.columns:
+                    st.error("Site Access Portal Log must contain the 'SiteName' column.")
+                    return
 
-            portal_site_names = portal_df['SiteName'].dropna().unique()
+                # Extract site names from Site Access Portal Log
+                portal_df['Extracted SiteName'] = portal_df['SiteName'].apply(extract_site_name)
+                portal_site_names = portal_df['Extracted SiteName'].dropna().unique()
 
-            # Find matched site names
-            matched_site_names = find_matched_sites(portal_site_names, rms_site_names)
+                # Debugging: Display extracted site names (optional)
+                # st.write("### Extracted RMS Site Names", rms_site_names)
+                # st.write("### Extracted Portal Site Names", portal_site_names)
 
-            # Find unmatched site names
-            unmatched_site_names = [site for site in rms_site_names if site not in matched_site_names]
+                # Find matched site names
+                matched_site_names = find_matched_sites(portal_site_names, rms_site_names)
 
-            if not unmatched_site_names:
-                st.success("All site names from RMS Door Open Log are matched in Site Access Portal Log.")
-                return
+                # Find unmatched site names
+                unmatched_site_names = [site for site in rms_site_names if site not in matched_site_names]
 
-            # Filter RMS data for unmatched sites
-            unmatched_df = rms_df[rms_df['Site Alias Clean'].isin(unmatched_site_names)].copy()
+                if not unmatched_site_names:
+                    st.success("All site names from RMS Door Open Log are matched in Site Access Portal Log.")
+                    return
 
-            # Convert 'Start Time' and 'End Time' to datetime
-            unmatched_df['Start Time'] = pd.to_datetime(unmatched_df['Start Time'], errors='coerce')
-            unmatched_df['End Time'] = pd.to_datetime(unmatched_df['End Time'], errors='coerce')
+                # Filter RMS data for unmatched sites
+                unmatched_df = rms_df[rms_df['Site Alias Clean'].isin(unmatched_site_names)].copy()
 
-            # Drop rows with invalid dates
-            unmatched_df = unmatched_df.dropna(subset=['Start Time', 'End Time'])
+                # Convert 'Start Time' and 'End Time' to datetime
+                unmatched_df['Start Time'] = pd.to_datetime(unmatched_df['Start Time'], errors='coerce')
+                unmatched_df['End Time'] = pd.to_datetime(unmatched_df['End Time'], errors='coerce')
 
-            # Select relevant columns
-            display_df = unmatched_df[['Site Alias', 'Cluster', 'Zone', 'Start Time', 'End Time']].copy()
+                # Drop rows with invalid dates
+                unmatched_df = unmatched_df.dropna(subset=['Start Time', 'End Time'])
 
-            # Rename columns for better readability
-            display_df.rename(columns={
-                'Site Alias': 'Site Alias',
-                'Cluster': 'Cluster',
-                'Zone': 'Zone',
-                'Start Time': 'Start Time',
-                'End Time': 'End Time'
-            }, inplace=True)
+                # Select relevant columns
+                display_df = unmatched_df[['Site Alias', 'Cluster', 'Zone', 'Start Time', 'End Time']].copy()
 
-            # Convert datetime to string for display
-            display_df['Start Time'] = display_df['Start Time'].dt.strftime('%m/%d/%Y %I:%M:%S %p')
-            display_df['End Time'] = display_df['End Time'].dt.strftime('%m/%d/%Y %I:%M:%S %p')
+                # Convert datetime to string for display
+                display_df['Start Time'] = display_df['Start Time'].dt.strftime('%m/%d/%Y %I:%M:%S %p')
+                display_df['End Time'] = display_df['End Time'].dt.strftime('%m/%d/%Y %I:%M:%S %p')
 
+            # Display Unmatched Site Logs
             st.header("🔍 Unmatched Site Logs")
             st.write(f"**Total Unmatched Sites: {len(unmatched_site_names)}**")
             st.dataframe(display_df)
@@ -155,6 +195,16 @@ def main():
             st.header("📋 Filtered Unmatched Site Logs")
             st.write(f"**Showing {len(filtered_display_df)} record(s) after applying filters.**")
             st.dataframe(filtered_display_df)
+
+            # Optional: Download Filtered Data
+            if not filtered_display_df.empty:
+                csv = filtered_display_df.to_csv(index=False)
+                st.download_button(
+                    label="Download Filtered Logs as CSV",
+                    data=csv,
+                    file_name='filtered_unmatched_logs.csv',
+                    mime='text/csv',
+                )
 
         except Exception as e:
             st.error(f"An error occurred while processing the files: {e}")
