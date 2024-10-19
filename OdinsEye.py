@@ -123,6 +123,10 @@ site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
 
+# Session state for keeping track of time filter
+if 'start_time_filter' not in st.session_state:
+    st.session_state.start_time_filter = datetime.now()
+
 if site_access_file and rms_file and current_alarms_file:
     # Load the Site Access Excel as-is
     site_access_df = pd.read_excel(site_access_file)
@@ -141,14 +145,14 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Add date and time filter for mismatched sites
     now = datetime.now()
-    date_filter = st.date_input("Filter Mismatched Sites by Start Date:", value=now)
+    date_filter = st.date_input("Filter Mismatched Sites by Start Date:", value=now.date())
     time_filter = st.time_input("Filter Mismatched Sites by Start Time:", value=now.time())
 
     # Combine date and time filters into a single datetime object
-    start_time_filter = pd.to_datetime(f"{date_filter} {time_filter}")
+    st.session_state.start_time_filter = pd.to_datetime(f"{date_filter} {time_filter}")
 
     if not mismatches_df.empty:
-        display_mismatched_sites(mismatches_df, start_time_filter)
+        display_mismatched_sites(mismatches_df, st.session_state.start_time_filter)
     else:
         st.write("No mismatches found. All sites match between Site Access and RMS/Alarms.")
 
@@ -157,6 +161,6 @@ if site_access_file and rms_file and current_alarms_file:
 
     if not matched_df.empty:
         # Display matched sites with status based on selected filter
-        display_matched_sites(matched_df, start_time_filter)
+        display_matched_sites(matched_df, st.session_state.start_time_filter)
     else:
         st.write("No matched sites found.")
