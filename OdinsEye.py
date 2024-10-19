@@ -1,9 +1,21 @@
 import pandas as pd
 import streamlit as st
+from datetime import datetime
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
     return site_name.split('_')[0] if pd.notnull(site_name) and '_' in site_name else site_name
+
+# Function to standardize date and time formats for comparison
+def standardize_datetime(date_series, time_series=None):
+    if time_series is not None:
+        # Combine date and time, if provided separately
+        datetime_series = date_series + " " + time_series
+    else:
+        datetime_series = date_series
+    
+    # Convert to common datetime format
+    return pd.to_datetime(datetime_series, errors='coerce')
 
 # Function to find mismatches between SiteName from Site Access and Site from RMS
 def find_mismatches(site_access_df, rms_df):
@@ -16,8 +28,24 @@ def find_mismatches(site_access_df, rms_df):
     # Filter mismatched data (_merge column will have 'right_only' for missing entries in Site Access)
     mismatches_df = merged_df[merged_df['_merge'] == 'right_only']
 
-    # Group by Cluster, Zone, Site Alias, Start Time, and End Time
-    grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
+    # Now check for entries that matched, but have an expired End Time
+    matched_df = merged_df[merged_df['_merge'] == 'both']
+    
+    # Standardize date formats for comparison
+    matched_df['SiteAccess_Start'] = standardize_datetime(matched_df['StartDate'])
+    matched_df['SiteAccess_End'] = standardize_datetime(matched_df['EndDate'])
+    matched_df['RMS_Start'] = standardize_datetime(matched_df['Start Time'])
+    matched_df['RMS_End'] = standardize_datetime(matched_df['End Time'])
+    
+    # Check for expired entries where RMS End Time is greater than Site Access End Date
+    expired_df = matched_df[matched_df['RMS_End'] > matched_df['SiteAccess_End']]
+    expired_df['Expired'] = "Expired"
+
+    # Combine mismatches and expired entries
+    combined_df = pd.concat([mismatches_df, expired_df])
+    
+    # Group by Cluster, Zone, Site Alias, Start Time, and End Time, with 'Expired' column for expired entries
+    grouped_df = combined_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time', 'Expired']).size().reset_index(name='Count')
     
     return grouped_df
 
@@ -40,7 +68,7 @@ def display_grouped_data(grouped_df):
             zone_df = cluster_df[cluster_df['Zone'] == zone]
             
             # Create a copy of the dataframe to handle hiding repeated Site Alias
-            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
+            display_df = zone_df[['Site Alias', 'Start Time', 'End Time', 'Expired']].copy()
             
             # Hide repeated Site Alias by replacing repeated values with empty strings
             display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
@@ -48,8 +76,14 @@ def display_grouped_data(grouped_df):
             # Replace NaN values with empty strings to avoid <NA> display
             display_df = display_df.fillna('')
             
-            # Display the table
-            st.table(display_df)
+            # Highlight 'Expired' cells with a light pink background
+            def highlight_expired(val):
+                color = 'background-color: lightpink' if val == "Expired" else ''
+                return [color] * len(val)
+
+            # Display the table with styling
+            st.dataframe(display_df.style.applymap(highlight_expired, subset=['Expired']))
+        
         st.markdown("---")  # Separator between clusters
 
 # Streamlit app
@@ -68,11 +102,11 @@ if site_access_file and rms_file:
 
     # Check if the necessary columns exist in both dataframes
     if 'SiteName' in site_access_df.columns and 'Site' in rms_df.columns:
-        # Find mismatches
+        # Find mismatches and expired entries
         mismatches_df = find_mismatches(site_access_df, rms_df)
 
         if not mismatches_df.empty:
-            st.write("Mismatched Sites grouped by Cluster and Zone:")
+            st.write("Mismatched Sites and Expired entries grouped by Cluster and Zone:")
             display_grouped_data(mismatches_df)
         else:
             st.write("No mismatches found. All sites match between Site Access and RMS.")
