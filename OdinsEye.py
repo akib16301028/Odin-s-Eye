@@ -23,8 +23,8 @@ def find_alarm_mismatches(site_access_df, alarms_df):
     merged_alarms = pd.merge(site_access_df, alarms_df, left_on='SiteName_Extracted', right_on='Site_Extracted', how='right', indicator=True)
     alarm_mismatches_df = merged_alarms[merged_alarms['_merge'] == 'right_only']
 
-    # Return relevant columns
-    return alarm_mismatches_df[['RMS Station', 'Site', 'Site Alias', 'Zone', 'Cluster', 'Alarm Name', 'Tag', 'Tenant', 'Alarm Time', 'Duration', 'Duration Slot (Hours)']]
+    # Return relevant columns, renaming Alarm Time to Start Time
+    return alarm_mismatches_df[['RMS Station', 'Site', 'Site Alias', 'Zone', 'Cluster', 'Alarm Name', 'Tag', 'Tenant', 'Alarm Time', 'Duration', 'Duration Slot (Hours)']].rename(columns={'Alarm Time': 'Start Time'})
 
 # Function to find matched sites and their status
 def find_matched_sites(site_access_df, rms_df):
