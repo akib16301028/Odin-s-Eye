@@ -1,6 +1,5 @@
 import pandas as pd
 import streamlit as st
-from datetime import datetime, time
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -118,25 +117,14 @@ if site_access_file and rms_file and current_alarms_file:
     # Merge RMS and Current Alarms data
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
-    # DateTime Picker for filtering mismatched sites
-    filter_datetime = st.date_input("Select Date", value=datetime.now().date())
-    filter_time = st.time_input("Select Time", value=datetime.now().time())
-
-    # Combine the date and time for filtering
-    filter_datetime_combined = datetime.combine(filter_datetime, filter_time)
-
     # Compare Site Access with the merged RMS/Alarms dataset and find mismatches
     mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
-
-    # Filter mismatches based on selected date and time
-    mismatches_df = mismatches_df[mismatches_df['Start Time'].dt.date == filter_datetime_combined.date()]
-    mismatches_df = mismatches_df[mismatches_df['Start Time'].dt.time == filter_datetime_combined.time()]
 
     if not mismatches_df.empty:
         st.write("Mismatched Sites grouped by Cluster and Zone:")
         display_grouped_data(mismatches_df, "Mismatched Sites")
     else:
-        st.write("No mismatches found for the selected date and time.")
+        st.write("No mismatches found. All sites match between Site Access and RMS/Alarms.")
 
     # Find matched sites and display with Valid/Expired status
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
