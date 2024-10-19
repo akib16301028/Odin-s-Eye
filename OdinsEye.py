@@ -5,22 +5,6 @@ import streamlit as st
 def extract_site(site_name):
     return site_name.split('_')[0] if pd.notnull(site_name) and '_' in site_name else site_name
 
-# Function to find mismatches between Site Access and merged RMS/Alarms dataset
-def find_mismatches(site_access_df, merged_df):
-    # Extract the first part of SiteName for comparison
-    site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
-
-    # Merge the Site Access data with the merged RMS/Alarms dataset
-    merged_comparison_df = pd.merge(site_access_df, merged_df, left_on='SiteName_Extracted', right_on='Site', how='right', indicator=True)
-
-    # Filter mismatched data (_merge column will have 'right_only' for missing entries in Site Access)
-    mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'right_only']
-
-    # Group by Cluster, Zone, Site Alias, Start Time, and End Time
-    grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
-
-    return grouped_df
-
 # Function to merge RMS and Current Alarms data
 def merge_rms_alarms(rms_df, alarms_df):
     # Use Alarm Time as Start Time for Current Alarms data
@@ -32,9 +16,25 @@ def merge_rms_alarms(rms_df, alarms_df):
     alarms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
 
     # Concatenate RMS and Current Alarms data
-    merged_df = pd.concat([rms_df[rms_columns], alarms_df[alarms_columns]])
+    merged_df = pd.concat([rms_df[rms_columns], alarms_df[alarms_columns]], ignore_index=True)
 
     return merged_df
+
+# Function to find mismatches between Site Access and merged RMS/Alarms dataset
+def find_mismatches(site_access_df, merged_df):
+    # Extract the first part of SiteName for comparison
+    site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
+
+    # Merge the Site Access data with the merged RMS/Alarms dataset
+    merged_comparison_df = pd.merge(merged_df, site_access_df, left_on='Site', right_on='SiteName_Extracted', how='left', indicator=True)
+
+    # Filter mismatched data (_merge column will have 'left_only' for missing entries in Site Access)
+    mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
+
+    # Group by Cluster, Zone, Site Alias, Start Time, and End Time
+    grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
+
+    return grouped_df
 
 # Function to display grouped data by Cluster and Zone in a table
 def display_grouped_data(grouped_df, title):
