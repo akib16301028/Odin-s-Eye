@@ -3,7 +3,7 @@ import streamlit as st
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
-    return site_name.split('_')[0] if '_' in site_name else site_name
+    return site_name.split('_')[0] if pd.notnull(site_name) and '_' in site_name else site_name
 
 # Function to find mismatches between SiteName from Site Access and Site from RMS
 def find_mismatches(site_access_df, rms_df):
@@ -30,8 +30,15 @@ rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 
 if site_access_file and rms_file:
     # Load the Excel files into dataframes
-    site_access_df = pd.read_excel(site_access_file)
-    rms_df = pd.read_excel(rms_file)
+    
+    # For Site Access, we're assuming the headers are in the first row (default behavior)
+    site_access_df = pd.read_excel(site_access_file, header=0)
+    
+    # Rename columns based on their positions if necessary
+    site_access_df.columns = ['RequestId', 'SiteName', 'SiteAccessType', 'StartDate', 'EndDate', 'InTime', 'OutTime', 'AccessPurpose', 'VendorName', 'POCName']
+
+    # For RMS, we skip the first 2 rows to read the headers correctly (as headers start from row 3)
+    rms_df = pd.read_excel(rms_file, header=2)  # Skipping the first 2 rows
 
     # Check if the necessary columns exist in both dataframes
     if 'SiteName' in site_access_df.columns and 'Site' in rms_df.columns:
