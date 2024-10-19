@@ -1,6 +1,5 @@
 import pandas as pd
 import streamlit as st
-from fuzzywuzzy import process
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -22,29 +21,36 @@ def find_mismatches(site_access_df, rms_df):
     
     return grouped_df
 
-# Function to search for Site Alias in Site Access data and display relevant info
-def search_site_alias(site_access_df, search_term):
-    # Extract the first part of the SiteName (as already done in the mismatches)
-    site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
+# Function to display grouped data by Cluster and Zone in a table with customized formatting
+def display_grouped_data(grouped_df):
+    # First, group by Cluster, then by Zone
+    clusters = grouped_df['Cluster'].unique()
     
-    # Perform a case-insensitive search for matches using fuzzy matching
-    choices = site_access_df['SiteName_Extracted'].unique()
-    matches = process.extract(search_term, choices, limit=10, scorer=process.extractOne)
-    
-    # Filter the dataframe to include only rows with matching SiteName_Extracted
-    matching_rows = site_access_df[site_access_df['SiteName_Extracted'].isin([match[0] for match in matches])]
-    
-    return matching_rows
+    for cluster in clusters:
+        # Display Cluster in bold
+        st.markdown(f"**{cluster}**")  # Cluster in bold
+        
+        cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
+        zones = cluster_df['Zone'].unique()
 
-# Function to display search results
-def display_search_results(matching_rows):
-    if matching_rows.empty:
-        st.write("No matches found.")
-    else:
-        st.write(f"Found {len(matching_rows)} match(es):")
-        # Display the relevant columns from Site Access for each match
-        display_df = matching_rows[['RequestId', 'SiteName', 'SiteAccessType', 'StartDate', 'EndDate', 'InTime', 'OutTime', 'AccessPurpose', 'VendorName', 'POCName']]
-        st.table(display_df)
+        for zone in zones:
+            # Display Zone in italic bold and slightly smaller
+            st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)  # Zone in italic bold with smaller font
+            
+            zone_df = cluster_df[cluster_df['Zone'] == zone]
+            
+            # Create a copy of the dataframe to handle hiding repeated Site Alias
+            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
+            
+            # Hide repeated Site Alias by replacing repeated values with empty strings
+            display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
+            
+            # Replace NaN values with empty strings to avoid <NA> display
+            display_df = display_df.fillna('')
+            
+            # Display the table
+            st.table(display_df)
+        st.markdown("---")  # Separator between clusters
 
 # Streamlit app
 st.title('Site Access and RMS Comparison Tool')
@@ -62,23 +68,13 @@ if site_access_file and rms_file:
 
     # Check if the necessary columns exist in both dataframes
     if 'SiteName' in site_access_df.columns and 'Site' in rms_df.columns:
-        
-        # Part 1: Mismatches Section (Existing functionality)
+        # Find mismatches
         mismatches_df = find_mismatches(site_access_df, rms_df)
+
         if not mismatches_df.empty:
             st.write("Mismatched Sites grouped by Cluster and Zone:")
             display_grouped_data(mismatches_df)
         else:
             st.write("No mismatches found. All sites match between Site Access and RMS.")
-        
-        # Part 2: Search Functionality
-        st.write("### Search for Site Alias")
-        search_term = st.text_input("Enter the Site Alias to search:")
-        
-        if search_term:
-            # Perform the search
-            search_results = search_site_alias(site_access_df, search_term)
-            display_search_results(search_results)
-        
     else:
         st.error("One or both files are missing the required columns (SiteName or Site).")
