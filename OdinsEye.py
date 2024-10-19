@@ -28,11 +28,19 @@ def find_mismatches(site_access_df, merged_df):
     # Merge the Site Access data with the merged RMS/Alarms dataset
     merged_comparison_df = pd.merge(merged_df, site_access_df, left_on='Site', right_on='SiteName_Extracted', how='left', indicator=True)
 
+    # Debugging step - Check if the merge is correct
+    st.write("Merged Comparison DataFrame")
+    st.dataframe(merged_comparison_df)
+
     # Filter mismatched data (_merge column will have 'left_only' for missing entries in Site Access)
     mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
 
     # Group by Cluster, Zone, Site Alias, Start Time, and End Time
     grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
+
+    # Debugging step - Check the grouped data
+    st.write("Grouped Mismatches DataFrame")
+    st.dataframe(grouped_df)
 
     return grouped_df
 
