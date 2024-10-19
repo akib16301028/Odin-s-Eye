@@ -13,11 +13,17 @@ def find_mismatches(site_access_df, rms_df):
     grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
     return grouped_df
 
-# Function to find mismatches with the current alarms data
+# Function to find mismatches with current alarms
 def find_alarm_mismatches(site_access_df, alarms_df):
-    alarms_df['SiteName_Extracted'] = alarms_df['Site'].apply(extract_site)
-    merged_alarms = pd.merge(site_access_df, alarms_df, left_on='SiteName', right_on='SiteName_Extracted', how='right', indicator=True)
+    # Extract the string before the underscore from SiteName for comparison
+    site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
+    alarms_df['Site_Extracted'] = alarms_df['Site'].apply(extract_site)
+
+    # Merge on the extracted columns to find mismatches
+    merged_alarms = pd.merge(site_access_df, alarms_df, left_on='SiteName_Extracted', right_on='Site_Extracted', how='right', indicator=True)
     alarm_mismatches_df = merged_alarms[merged_alarms['_merge'] == 'right_only']
+
+    # Return relevant columns
     return alarm_mismatches_df[['RMS Station', 'Site', 'Site Alias', 'Zone', 'Cluster', 'Alarm Name', 'Tag', 'Tenant', 'Alarm Time', 'Duration', 'Duration Slot (Hours)']]
 
 # Function to find matched sites and their status
@@ -31,14 +37,16 @@ def find_matched_sites(site_access_df, rms_df):
     matched_df['Status'] = matched_df.apply(lambda row: 'Expired' if row['End Time'] > row['EndDate'] else 'Valid', axis=1)
     return matched_df
 
-# Function to display grouped data by Cluster and Zone in a table with customized formatting
+# Function to display grouped data by Cluster and Zone
 def display_grouped_data(grouped_df, title):
     st.write(title)
     clusters = grouped_df['Cluster'].unique()
+    
     for cluster in clusters:
         st.markdown(f"**{cluster}**")
         cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
         zones = cluster_df['Zone'].unique()
+
         for zone in zones:
             st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)
             zone_df = cluster_df[cluster_df['Zone'] == zone]
@@ -53,6 +61,7 @@ def display_matched_sites(matched_df):
     color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
     def highlight_status(status):
         return color_map.get(status, '')
+    
     styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
     st.write("Matched Sites:")
     st.dataframe(styled_df)
@@ -98,8 +107,10 @@ if site_access_file and rms_file and alarms_file:
         alarm_mismatches_df = find_alarm_mismatches(site_access_df, alarms_df)
 
         if not alarm_mismatches_df.empty:
-            st.write("Mismatched Alarms:")
-            st.table(alarm_mismatches_df)
+            # Group by Cluster and Zone for display
+            grouped_alarm_mismatches = alarm_mismatches_df.groupby(['Cluster', 'Zone']).size().reset_index(name='Count')
+            st.write("Mismatched Alarms grouped by Cluster and Zone:")
+            display_grouped_data(grouped_alarm_mismatches, "Mismatched Alarms")
         else:
             st.write("No mismatches found in the Current Alarms file.")
     else:
