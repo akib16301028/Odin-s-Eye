@@ -60,17 +60,35 @@ def find_matched_sites(site_access_df, merged_df):
 
     return matched_df
 
-# Function to display matched sites with status based on selected filter
-def display_matched_sites(matched_df, filter_status=None):
+# Function to display grouped data by Cluster and Zone in a table
+def display_grouped_data(grouped_df, title):
+    st.write(title)
+    clusters = grouped_df['Cluster'].unique()
+
+    for cluster in clusters:
+        st.markdown(f"**{cluster}**")  # Cluster in bold
+        cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
+        zones = cluster_df['Zone'].unique()
+
+        for zone in zones:
+            st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)  # Zone in italic bold with smaller font
+            
+            zone_df = cluster_df[cluster_df['Zone'] == zone]
+            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
+            
+            display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
+            display_df = display_df.fillna('')  # Replace NaN with empty strings
+
+            st.table(display_df)
+        st.markdown("---")  # Separator between clusters
+
+# Function to display matched sites with status
+def display_matched_sites(matched_df):
     # Define colors based on status
     color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
 
     def highlight_status(status):
         return color_map.get(status, '')
-
-    # Filter matched_df based on selected filter status
-    if filter_status:
-        matched_df = matched_df[matched_df['Status'] == filter_status]
 
     # Apply the highlighting function
     styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
@@ -112,13 +130,6 @@ if site_access_file and rms_file and current_alarms_file:
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
 
     if not matched_df.empty:
-        # Filter for Valid/Expired selection
-        filter_status = st.selectbox("Select Status to Filter:", ["All", "Valid", "Expired"])
-
-        # Display matched sites with status based on selected filter
-        if filter_status == "All":
-            display_matched_sites(matched_df)
-        else:
-            display_matched_sites(matched_df, filter_status)
+        display_matched_sites(matched_df)
     else:
         st.write("No matched sites found.")
