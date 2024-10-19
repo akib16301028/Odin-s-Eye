@@ -78,12 +78,19 @@ def display_matched_sites(matched_df):
     st.write("Matched Sites:")
     st.dataframe(styled_df)
 
+# Function to find mismatches with Current Alarms
+def find_current_alarm_mismatches(site_access_df, current_alarms_df):
+    current_alarms_df['SiteName_Extracted'] = current_alarms_df['Site'].apply(extract_site)
+    merged_df = pd.merge(site_access_df, current_alarms_df, left_on='SiteName', right_on='SiteName_Extracted', how='right', indicator=True)
+    return merged_df[merged_df['_merge'] == 'right_only']
+
 # Streamlit app
 st.title('Site Access and RMS Comparison Tool')
 
 # File upload section
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
+current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
 
 if site_access_file and rms_file:
     # Load the Site Access Excel as-is
@@ -110,5 +117,23 @@ if site_access_file and rms_file:
             display_matched_sites(matched_df)
         else:
             st.write("No matched sites found.")
+
+        # After uploading Current Alarms file
+        if current_alarms_file:
+            # Load Current Alarms Excel, skipping the first two rows (so headers start from row 3)
+            current_alarms_df = pd.read_excel(current_alarms_file, header=2)  # header=2 means row 3 is the header
+
+            # Check if the necessary columns exist in current alarms dataframe
+            if 'Site' in current_alarms_df.columns:
+                # Find mismatches with current alarms
+                alarm_mismatches = find_current_alarm_mismatches(site_access_df, current_alarms_df)
+
+                if not alarm_mismatches.empty:
+                    st.write("Mismatched Sites with Current Alarms:")
+                    st.table(alarm_mismatches[['Site Alias', 'Zone', 'Cluster', 'Alarm Time']])  # Display required columns
+                else:
+                    st.write("No mismatches found in Current Alarms.")
+            else:
+                st.error("The Current Alarms file is missing the required column 'Site'.")
     else:
         st.error("One or both files are missing the required columns (SiteName or Site).")
