@@ -18,17 +18,17 @@ def standardize_datetime(date_series, time_series=None):
     return pd.to_datetime(datetime_series, errors='coerce')
 
 # Function to find mismatches between SiteName from Site Access and Site from RMS
-def find_mismatches(site_access_df, rms_df):
+def find_mismatches_and_expirations(site_access_df, rms_df):
     # Extract the first part of SiteName for comparison
     site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
 
     # Merge the data on SiteName_Extracted and Site to find mismatches
-    merged_df = pd.merge(site_access_df, rms_df, left_on='SiteName_Extracted', right_on='Site', how='right', indicator=True)
+    merged_df = pd.merge(site_access_df, rms_df, left_on='SiteName_Extracted', right_on='Site', how='outer', indicator=True)
 
-    # Filter mismatched data (_merge column will have 'right_only' for missing entries in Site Access)
+    # Identify mismatched sites (those present in RMS but not in Site Access)
     mismatches_df = merged_df[merged_df['_merge'] == 'right_only']
 
-    # Now check for entries that matched, but have an expired End Time
+    # Now check for entries that matched but have expired End Time
     matched_df = merged_df[merged_df['_merge'] == 'both']
     
     # Standardize date formats for comparison
@@ -103,7 +103,7 @@ if site_access_file and rms_file:
     # Check if the necessary columns exist in both dataframes
     if 'SiteName' in site_access_df.columns and 'Site' in rms_df.columns:
         # Find mismatches and expired entries
-        mismatches_df = find_mismatches(site_access_df, rms_df)
+        mismatches_df = find_mismatches_and_expirations(site_access_df, rms_df)
 
         if not mismatches_df.empty:
             st.write("Mismatched Sites and Expired entries grouped by Cluster and Zone:")
