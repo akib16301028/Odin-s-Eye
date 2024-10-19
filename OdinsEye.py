@@ -47,9 +47,15 @@ def display_grouped_data(grouped_df, title):
     st.write(title)
     clusters = grouped_df['Cluster'].unique()
 
+    # Time filter for mismatched sites
+    start_date, end_date = st.date_input("Select date range:", [pd.to_datetime('today()') - pd.DateOffset(months=1), pd.to_datetime('today()')])
+    
+    # Filter the grouped data by the selected date range
+    filtered_grouped_df = grouped_df[(grouped_df['Start Time'] >= start_date) & (grouped_df['Start Time'] <= end_date)]
+
     for cluster in clusters:
         st.markdown(f"**{cluster}**")  # Cluster in bold
-        cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
+        cluster_df = filtered_grouped_df[filtered_grouped_df['Cluster'] == cluster]
         zones = cluster_df['Zone'].unique()
 
         for zone in zones:
@@ -72,8 +78,11 @@ def display_matched_sites(matched_df):
     def highlight_status(status):
         return color_map.get(status, '')
 
+    def highlight_site_alias(row):
+        return color_map.get(row['Status'], '')
+
     # Apply the highlighting function
-    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
+    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status']).applymap(highlight_site_alias, subset=['Site Alias'])
 
     st.write("Matched Sites:")
     st.dataframe(styled_df)
