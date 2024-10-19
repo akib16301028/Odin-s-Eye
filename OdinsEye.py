@@ -22,11 +22,20 @@ def find_mismatches_and_expirations(site_access_df, rms_df):
     # Extract the first part of SiteName for comparison
     site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
 
+    # Debugging: Check extracted site names
+    st.write("Extracted Site Names from Site Access:", site_access_df['SiteName_Extracted'].unique())
+
     # Merge the data on SiteName_Extracted and Site to find mismatches
     merged_df = pd.merge(site_access_df, rms_df, left_on='SiteName_Extracted', right_on='Site', how='outer', indicator=True)
 
+    # Debugging: Check the merged DataFrame
+    st.write("Merged DataFrame:", merged_df)
+
     # Identify mismatched sites (those present in RMS but not in Site Access)
     mismatches_df = merged_df[merged_df['_merge'] == 'right_only']
+
+    # Debugging: Check the mismatched DataFrame
+    st.write("Mismatched Sites:", mismatches_df)
 
     # Now check for entries that matched but have expired End Time
     matched_df = merged_df[merged_df['_merge'] == 'both']
@@ -42,7 +51,7 @@ def find_mismatches_and_expirations(site_access_df, rms_df):
     expired_df['Expired'] = "Expired"
 
     # Combine mismatches and expired entries
-    combined_df = pd.concat([mismatches_df, expired_df])
+    combined_df = pd.concat([mismatches_df, expired_df], ignore_index=True)
     
     # Group by Cluster, Zone, Site Alias, Start Time, and End Time, with 'Expired' column for expired entries
     grouped_df = combined_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time', 'Expired']).size().reset_index(name='Count')
