@@ -83,16 +83,12 @@ def display_grouped_data(grouped_df, title):
         st.markdown("---")  # Separator between clusters
 
 # Function to display matched sites with status
-def display_matched_sites(matched_df, start_time_filter=None):
+def display_matched_sites(matched_df):
     # Define colors based on status
     color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
 
     def highlight_status(status):
         return color_map.get(status, '')
-
-    # Filter matched_df based on selected start time filter
-    if start_time_filter:
-        matched_df = matched_df[matched_df['Start Time'] >= start_time_filter]
 
     # Apply the highlighting function
     styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
@@ -134,10 +130,6 @@ if site_access_file and rms_file and current_alarms_file:
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
 
     if not matched_df.empty:
-        # Add filter for Start Time
-        start_time_filter = st.date_input("Filter by Start Time (after):", value=pd.to_datetime("2023-01-01"))
-
-        # Display matched sites with status based on selected filter
-        display_matched_sites(matched_df, start_time_filter)
+        display_matched_sites(matched_df)
     else:
         st.write("No matched sites found.")
