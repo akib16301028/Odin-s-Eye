@@ -16,10 +16,29 @@ def find_mismatches(site_access_df, rms_df):
     # Filter mismatched data (_merge column will have 'right_only' for missing entries in Site Access)
     mismatches_df = merged_df[merged_df['_merge'] == 'right_only']
 
-    # Group by Zone and Cluster and return the result
-    grouped_df = mismatches_df.groupby(['Zone', 'Cluster', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
+    # Group by Cluster, Zone, Site Alias, Start Time, and End Time
+    grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
     
     return grouped_df
+
+# Function to display grouped data by Cluster and Zone
+def display_grouped_data(grouped_df):
+    # First, group by Cluster, then by Zone
+    clusters = grouped_df['Cluster'].unique()
+    
+    for cluster in clusters:
+        st.subheader(f"Cluster: {cluster}")
+        cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
+        zones = cluster_df['Zone'].unique()
+
+        for zone in zones:
+            st.markdown(f"### Zone: {zone}")
+            zone_df = cluster_df[cluster_df['Zone'] == zone]
+            
+            # Display the data for each Site Alias under the current Cluster and Zone
+            for idx, row in zone_df.iterrows():
+                st.write(f"Site Alias: {row['Site Alias']}, Start Time: {row['Start Time']}, End Time: {row['End Time']}")
+        st.markdown("---")
 
 # Streamlit app
 st.title('Site Access and RMS Comparison Tool')
@@ -41,8 +60,8 @@ if site_access_file and rms_file:
         mismatches_df = find_mismatches(site_access_df, rms_df)
 
         if not mismatches_df.empty:
-            st.write("Mismatched Sites with details grouped by Zone and Cluster:")
-            st.dataframe(mismatches_df)
+            st.write("Mismatched Sites grouped by Cluster and Zone:")
+            display_grouped_data(mismatches_df)
         else:
             st.write("No mismatches found. All sites match between Site Access and RMS.")
     else:
