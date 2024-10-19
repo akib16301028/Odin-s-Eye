@@ -29,11 +29,13 @@ def find_matched_sites(site_access_df, rms_df):
     # Merge the data on SiteName_Extracted and Site to find matches
     matched_df = pd.merge(site_access_df, rms_df, left_on='SiteName_Extracted', right_on='Site', how='inner')
 
-    # Convert date columns to datetime
-    matched_df['StartDate'] = pd.to_datetime(matched_df['StartDate'], errors='coerce')
-    matched_df['EndDate'] = pd.to_datetime(matched_df['EndDate'], errors='coerce')
-    matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
-    matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
+    # Convert date columns to datetime, using errors='coerce' to handle errors
+    for date_col in ['StartDate', 'EndDate', 'Start Time', 'End Time']:
+        matched_df[date_col] = pd.to_datetime(matched_df[date_col], errors='coerce')
+
+    # Check for any rows where date conversion resulted in NaT
+    if matched_df['StartDate'].isnull().any() or matched_df['EndDate'].isnull().any() or matched_df['Start Time'].isnull().any() or matched_df['End Time'].isnull().any():
+        st.warning("Some dates could not be parsed and have been set to NaT. Please check the date columns for correct formatting.")
 
     # Identify valid and expired sites
     matched_df['Status'] = matched_df.apply(
