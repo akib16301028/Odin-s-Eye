@@ -21,18 +21,22 @@ def find_mismatches(site_access_df, rms_df):
     
     return grouped_df
 
-# Function to display grouped data by Cluster and Zone in table format
+# Function to display grouped data by Cluster and Zone in a table with customized formatting
 def display_grouped_data(grouped_df):
     # First, group by Cluster, then by Zone
     clusters = grouped_df['Cluster'].unique()
     
     for cluster in clusters:
-        st.subheader(f"{cluster}")
+        # Display Cluster in bold
+        st.markdown(f"**{cluster}**")  # Cluster in bold
+        
         cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
         zones = cluster_df['Zone'].unique()
 
         for zone in zones:
-            st.markdown(f"###{zone}")
+            # Display Zone in italic bold and slightly smaller
+            st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)  # Zone in italic bold with smaller font
+            
             zone_df = cluster_df[cluster_df['Zone'] == zone]
             
             # Create a new dataframe for display containing only the relevant columns
@@ -40,7 +44,7 @@ def display_grouped_data(grouped_df):
             
             # Display the table
             st.table(display_df)
-        st.markdown("---")
+        st.markdown("---")  # Separator between clusters
 
 # Streamlit app
 st.title('Site Access and RMS Comparison Tool')
