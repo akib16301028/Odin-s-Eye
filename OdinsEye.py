@@ -5,19 +5,16 @@ import streamlit as st
 def extract_site(site_name):
     return site_name.split('_')[0] if pd.notnull(site_name) and '_' in site_name else site_name
 
-# Function to find mismatches between SiteName from Site Access and Site from merged RMS/Alarms data
+# Function to find mismatches between Site Access and merged RMS/Alarms dataset
 def find_mismatches(site_access_df, merged_df):
     # Extract the first part of SiteName for comparison
     site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
 
-    # Merge the data on SiteName_Extracted and Site to find mismatches
-    merged_df = pd.merge(site_access_df, merged_df, left_on='SiteName_Extracted', right_on='Site', how='right', indicator=True)
+    # Merge the Site Access data with the merged RMS/Alarms dataset
+    merged_comparison_df = pd.merge(site_access_df, merged_df, left_on='SiteName_Extracted', right_on='Site', how='right', indicator=True)
 
     # Filter mismatched data (_merge column will have 'right_only' for missing entries in Site Access)
-    mismatches_df = merged_df[merged_df['_merge'] == 'right_only']
-
-    # Keep relevant columns including Start Time and End Time (even if End Time is NaT for current alarms)
-    mismatches_df = mismatches_df[['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']]
+    mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'right_only']
 
     # Group by Cluster, Zone, Site Alias, Start Time, and End Time
     grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
@@ -86,7 +83,7 @@ if site_access_file and rms_file and current_alarms_file:
     st.write("Merged RMS and Current Alarms Dataset:")
     st.dataframe(merged_rms_alarms_df)  # Show the merged data in a table format
 
-    # Find mismatches
+    # Compare Site Access with the merged RMS/Alarms dataset and find mismatches
     mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
 
     if not mismatches_df.empty:
