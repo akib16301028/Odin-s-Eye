@@ -16,6 +16,9 @@ def find_mismatches(site_access_df, merged_df):
     # Filter mismatched data (_merge column will have 'right_only' for missing entries in Site Access)
     mismatches_df = merged_df[merged_df['_merge'] == 'right_only']
 
+    # Keep relevant columns including Start Time and End Time (even if End Time is NaT for current alarms)
+    mismatches_df = mismatches_df[['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']]
+
     # Group by Cluster, Zone, Site Alias, Start Time, and End Time
     grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
 
