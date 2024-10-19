@@ -35,6 +35,10 @@ def find_mismatches(site_access_df, merged_df):
     # Filter mismatched data (_merge column will have 'left_only' for missing entries in Site Access)
     mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
 
+    # Ensure that data without End Time is included
+    st.write("Mismatches DataFrame (Including No End Time)")
+    st.dataframe(mismatches_df)
+
     # Group by Cluster, Zone, Site Alias, Start Time, and End Time
     grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
 
