@@ -36,9 +36,8 @@ def find_matched_sites(site_access_df, rms_df):
     matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
 
     # Identify valid and expired sites
-    current_date = pd.Timestamp.now()
     matched_df['Status'] = matched_df.apply(
-        lambda row: 'Expired' if row['End Time'] < row['EndDate'] else 'Valid', axis=1
+        lambda row: 'Expired' if row['End Time'] > row['EndDate'] else 'Valid', axis=1
     )
 
     return matched_df
@@ -67,8 +66,6 @@ def display_grouped_data(grouped_df, title):
 
 # Function to display matched sites with status
 def display_matched_sites(matched_df):
-    matched_df['Status'] = matched_df['Status'].replace({'Valid': 'Valid', 'Expired': 'Expired'})
-
     # Define colors based on status
     color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
     
@@ -76,7 +73,7 @@ def display_matched_sites(matched_df):
         return color_map.get(status, '')
 
     # Apply the highlighting function
-    styled_df = matched_df[['RequestId', 'Site Alias', 'SiteAccessType', 'Start Time', 'End Time', 'Status']].style.applymap(highlight_status, subset=['Status'])
+    styled_df = matched_df[['RequestId', 'Site Alias', 'SiteAccessType', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
 
     st.write("Matched Sites:")
     st.dataframe(styled_df)
