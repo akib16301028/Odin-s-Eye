@@ -1,6 +1,5 @@
 import pandas as pd
 import streamlit as st
-from datetime import datetime, time
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -100,29 +99,7 @@ if site_access_file and rms_file:
 
         if not mismatches_df.empty:
             st.write("Mismatched Sites grouped by Cluster and Zone:")
-            
-            # Date and time range selection for filtering
-            start_date = st.date_input("Select Start Date", value=pd.to_datetime(mismatches_df['Start Time'].min()).date())
-            start_time = st.time_input("Select Start Time", value=datetime.now().time())
-            end_date = st.date_input("Select End Date", value=pd.to_datetime(mismatches_df['End Time'].max()).date())
-            end_time = st.time_input("Select End Time", value=datetime.now().time())
-
-            # Combine date and time into datetime
-            start_datetime = pd.to_datetime(f"{start_date} {start_time}")
-            end_datetime = pd.to_datetime(f"{end_date} {end_time}")
-
-            # Filter mismatches based on date and time range
-            mismatches_df['Start Time'] = pd.to_datetime(mismatches_df['Start Time'])
-            mismatches_df['End Time'] = pd.to_datetime(mismatches_df['End Time'])
-            filtered_mismatches_df = mismatches_df[
-                (mismatches_df['Start Time'] >= start_datetime) &
-                (mismatches_df['End Time'] <= end_datetime)
-            ]
-
-            if not filtered_mismatches_df.empty:
-                display_grouped_data(filtered_mismatches_df, "Mismatched Sites")
-            else:
-                st.write("No mismatches found within the selected date and time range.")
+            display_grouped_data(mismatches_df, "Mismatched Sites")
         else:
             st.write("No mismatches found. All sites match between Site Access and RMS.")
 
