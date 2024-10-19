@@ -32,20 +32,33 @@ def find_mismatches(site_access_df, merged_df):
     mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
 
     # Ensure that data without End Time is included
-    st.write("Mismatches DataFrame (Including No End Time)")
-    st.dataframe(mismatches_df)
-
-    # Group by Cluster, Zone, Site Alias, Start Time, and End Time
-    # Handle missing End Time by filling NaN values with an empty string
     mismatches_df['End Time'] = mismatches_df['End Time'].fillna('')
 
+    # Group by Cluster, Zone, Site Alias, Start Time, and End Time
     grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time'], dropna=False).size().reset_index(name='Count')
 
-    # Debugging step - Check the grouped data
-    st.write("Grouped Mismatches DataFrame")
-    st.dataframe(grouped_df)
-
     return grouped_df
+
+# Function to find matched sites and their status
+def find_matched_sites(site_access_df, merged_df):
+    # Extract the first part of SiteName for comparison
+    site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
+
+    # Merge the data on SiteName_Extracted and Site to find matches
+    matched_df = pd.merge(site_access_df, merged_df, left_on='SiteName_Extracted', right_on='Site', how='inner')
+
+    # Convert date columns to datetime
+    matched_df['StartDate'] = pd.to_datetime(matched_df['StartDate'], errors='coerce')
+    matched_df['EndDate'] = pd.to_datetime(matched_df['EndDate'], errors='coerce')
+    matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
+    matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
+
+    # Identify valid and expired sites
+    matched_df['Status'] = matched_df.apply(
+        lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1
+    )
+
+    return matched_df
 
 # Function to display grouped data by Cluster and Zone in a table
 def display_grouped_data(grouped_df, title):
@@ -69,6 +82,20 @@ def display_grouped_data(grouped_df, title):
             st.table(display_df)
         st.markdown("---")  # Separator between clusters
 
+# Function to display matched sites with status
+def display_matched_sites(matched_df):
+    # Define colors based on status
+    color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
+
+    def highlight_status(status):
+        return color_map.get(status, '')
+
+    # Apply the highlighting function
+    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
+
+    st.write("Matched Sites with Status:")
+    st.dataframe(styled_df)
+
 # Streamlit app
 st.title('Site Access and RMS/Alarms Comparison Tool')
 
@@ -90,10 +117,6 @@ if site_access_file and rms_file and current_alarms_file:
     # Merge RMS and Current Alarms data
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
-    # Display the merged dataset
-    st.write("Merged RMS and Current Alarms Dataset:")
-    st.dataframe(merged_rms_alarms_df)  # Show the merged data in a table format
-
     # Compare Site Access with the merged RMS/Alarms dataset and find mismatches
     mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
 
@@ -102,3 +125,11 @@ if site_access_file and rms_file and current_alarms_file:
         display_grouped_data(mismatches_df, "Mismatched Sites")
     else:
         st.write("No mismatches found. All sites match between Site Access and RMS/Alarms.")
+
+    # Find matched sites and display with Valid/Expired status
+    matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
+
+    if not matched_df.empty:
+        display_matched_sites(matched_df)
+    else:
+        st.write("No matched sites found.")
