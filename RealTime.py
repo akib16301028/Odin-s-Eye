@@ -7,12 +7,16 @@ def main():
     # Upload Excel files
     site_access_file = st.file_uploader("Upload Site Access Excel File", type=["xlsx"])
     rms_file = st.file_uploader("Upload RMS Excel File", type=["xlsx"])
-    
-    if site_access_file is not None and rms_file is not None:
+    alarms_file = st.file_uploader("Upload Current Alarms Excel File", type=["xlsx"])
+
+    if site_access_file is not None and rms_file is not None and alarms_file is not None:
         # Read the uploaded Excel files
         site_access_df = pd.read_excel(site_access_file)
         rms_df = pd.read_excel(rms_file)
         
+        # Read the current alarms file starting from row 3
+        alarms_df = pd.read_excel(alarms_file, header=2)  # Set header to row 3 (index 2)
+
         # Display the uploaded dataframes
         st.subheader("Site Access Data")
         st.dataframe(site_access_df)
@@ -20,16 +24,23 @@ def main():
         st.subheader("RMS Data")
         st.dataframe(rms_df)
 
-        # Check for necessary columns
+        st.subheader("Current Alarms Data")
+        st.dataframe(alarms_df)
+
+        # Check for necessary columns in Site Access and RMS DataFrames
         required_site_access_columns = ['RequestId', 'SiteName', 'SiteAccessType', 
                                          'StartDate', 'EndDate', 'InTime', 'OutTime', 
                                          'AccessPurpose', 'VendorName', 'POCName']
         required_rms_columns = ['RMS Station', 'Site', 'Site Alias', 'Zone', 
                                 'Cluster', 'Alarm Name', 'Tag', 'Tenant', 
                                 'Alarm Time', 'Duration', 'Duration Slot (Hours)']
+        required_alarms_columns = ['RMS Station', 'Site', 'Site Alias', 'Zone', 
+                                   'Cluster', 'Alarm Name', 'Tag', 'Tenant', 
+                                   'Alarm Time', 'Duration', 'Duration Slot (Hours)']  # Adjust according to your actual headers
 
         if all(col in site_access_df.columns for col in required_site_access_columns) and \
-           all(col in rms_df.columns for col in required_rms_columns):
+           all(col in rms_df.columns for col in required_rms_columns) and \
+           all(col in alarms_df.columns for col in required_alarms_columns):
             
             # Extract the first part of SiteName before the underscore
             site_access_df['ShortSiteName'] = site_access_df['SiteName'].str.split('_').str[0]
