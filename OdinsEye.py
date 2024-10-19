@@ -21,7 +21,7 @@ def find_mismatches(site_access_df, rms_df):
     
     return grouped_df
 
-# Function to display grouped data by Cluster and Zone
+# Function to display grouped data by Cluster and Zone in table format
 def display_grouped_data(grouped_df):
     # First, group by Cluster, then by Zone
     clusters = grouped_df['Cluster'].unique()
@@ -35,9 +35,11 @@ def display_grouped_data(grouped_df):
             st.markdown(f"### Zone: {zone}")
             zone_df = cluster_df[cluster_df['Zone'] == zone]
             
-            # Display the data for each Site Alias under the current Cluster and Zone
-            for idx, row in zone_df.iterrows():
-                st.write(f"Site Alias: {row['Site Alias']}, Start Time: {row['Start Time']}, End Time: {row['End Time']}")
+            # Create a new dataframe for display containing only the relevant columns
+            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']]
+            
+            # Display the table
+            st.table(display_df)
         st.markdown("---")
 
 # Streamlit app
