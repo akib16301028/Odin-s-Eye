@@ -45,6 +45,9 @@ def display_grouped_data(grouped_df):
             # Hide repeated Site Alias by replacing repeated values with empty strings
             display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
             
+            # Replace NaN values with empty strings to avoid <NA> display
+            display_df = display_df.fillna('')
+            
             # Display the table
             st.table(display_df)
         st.markdown("---")  # Separator between clusters
