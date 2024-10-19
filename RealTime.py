@@ -7,27 +7,34 @@ def main():
     # Upload Excel files
     site_access_file = st.file_uploader("Upload Site Access Excel File", type=["xlsx"])
     rms_file = st.file_uploader("Upload RMS Excel File", type=["xlsx"])
+    alarms_file = st.file_uploader("Upload Current Alarms Excel File", type=["xlsx"])
     
-    if site_access_file is not None and rms_file is not None:
+    if site_access_file is not None and rms_file is not None and alarms_file is not None:
         # Read the uploaded Excel files
         site_access_df = pd.read_excel(site_access_file)
         rms_df = pd.read_excel(rms_file)
         
+        # Read the Current Alarms file starting from row 3
+        alarms_df = pd.read_excel(alarms_file, header=2)  # header=2 sets the header from the 3rd row (0-indexed)
+
         # Display the uploaded dataframes
         st.subheader("Site Access Data")
         st.dataframe(site_access_df)
         
         st.subheader("RMS Data")
         st.dataframe(rms_df)
+        
+        st.subheader("Current Alarms Data")
+        st.dataframe(alarms_df)
 
-        # Check for necessary columns
+        # Check for necessary columns in Site Access and RMS
         required_site_access_columns = ['RequestId', 'SiteName', 'SiteAccessType', 
                                          'StartDate', 'EndDate', 'InTime', 'OutTime', 
                                          'AccessPurpose', 'VendorName', 'POCName']
         required_rms_columns = ['RMS Station', 'Site', 'Site Alias', 'Zone', 
                                 'Cluster', 'Alarm Name', 'Tag', 'Tenant', 
                                 'Alarm Time', 'Duration', 'Duration Slot (Hours)']
-
+        
         if all(col in site_access_df.columns for col in required_site_access_columns) and \
            all(col in rms_df.columns for col in required_rms_columns):
             
