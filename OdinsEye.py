@@ -27,12 +27,12 @@ def display_grouped_data(grouped_df):
     clusters = grouped_df['Cluster'].unique()
     
     for cluster in clusters:
-        st.subheader(f"Cluster: {cluster}")
+        st.subheader(f"{cluster}")
         cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
         zones = cluster_df['Zone'].unique()
 
         for zone in zones:
-            st.markdown(f"### Zone: {zone}")
+            st.markdown(f"###{zone}")
             zone_df = cluster_df[cluster_df['Zone'] == zone]
             
             # Create a new dataframe for display containing only the relevant columns
