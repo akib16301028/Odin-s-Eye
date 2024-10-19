@@ -78,12 +78,23 @@ def display_matched_sites(matched_df):
     st.write("Matched Sites:")
     st.dataframe(styled_df)
 
+# Function to merge mismatched sites with current alarms data
+def merge_with_alarms(mismatches_df, alarms_df):
+    # Merge mismatched sites with the alarms based on Site Name
+    merged_alarms_df = pd.merge(mismatches_df, alarms_df[['Site', 'Alarm Time']], left_on='Site Alias', right_on='Site', how='left')
+
+    # Update Start Time with Alarm Time if available
+    merged_alarms_df['Start Time'] = merged_alarms_df['Alarm Time'].combine_first(merged_alarms_df['Start Time'])
+
+    return merged_alarms_df
+
 # Streamlit app
 st.title('Site Access and RMS Comparison Tool')
 
 # File upload section
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
+alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
 
 if site_access_file and rms_file:
     # Load the Site Access Excel as-is
@@ -112,3 +123,19 @@ if site_access_file and rms_file:
             st.write("No matched sites found.")
     else:
         st.error("One or both files are missing the required columns (SiteName or Site).")
+
+# Process the current alarms file if uploaded
+if alarms_file:
+    alarms_df = pd.read_excel(alarms_file)
+
+    # Check if 'Site' and 'Alarm Time' columns exist in alarms_df
+    if 'Site' in alarms_df.columns and 'Alarm Time' in alarms_df.columns:
+        # Merge the mismatched sites with current alarms
+        if 'mismatches_df' in locals() and not mismatches_df.empty:
+            merged_df = merge_with_alarms(mismatches_df, alarms_df)
+            st.write("Merged Mismatched Sites with Current Alarms:")
+            display_grouped_data(merged_df, "Merged Mismatched Sites with Alarms")
+        else:
+            st.warning("Please process the Site Access and RMS files before merging with alarms.")
+    else:
+        st.error("Current Alarms file must contain 'Site' and 'Alarm Time' columns.")
