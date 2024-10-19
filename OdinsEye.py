@@ -72,13 +72,8 @@ def display_matched_sites(matched_df):
     def highlight_status(status):
         return color_map.get(status, '')
 
-    def highlight_site_alias(row):
-        return color_map.get(row['Status'], '')
-
     # Apply the highlighting function
-    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']] \
-        .style.applymap(highlight_status, subset=['Status']) \
-        .applymap(highlight_site_alias, subset=['Site Alias'])
+    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
 
     st.write("Matched Sites:")
     st.dataframe(styled_df)
