@@ -35,10 +35,7 @@ def find_mismatches(site_access_df, merged_df):
     # Ensure that data without End Time is included
     mismatches_df['End Time'] = mismatches_df['End Time'].fillna('')
 
-    # Group by Cluster, Zone, Site Alias, Start Time, and End Time
-    grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time'], dropna=False).size().reset_index(name='Count')
-
-    return grouped_df
+    return mismatches_df
 
 # Function to find matched sites and their status
 def find_matched_sites(site_access_df, merged_df):
@@ -101,15 +98,22 @@ def display_matched_sites(matched_df, start_time_filter=None):
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
-# Function to display mismatched sites with status
+# Function to display mismatched sites with grouping
 def display_mismatched_sites(mismatched_df, start_time_filter=None):
+    # Ensure End Time is filled for display
+    mismatched_df['End Time'] = mismatched_df['End Time'].fillna('')
+
     # Filter mismatched_df based on selected start time filter
     if start_time_filter:
         mismatched_df = mismatched_df[mismatched_df['Start Time'] >= start_time_filter]
 
-    # Display the filtered mismatched DataFrame
-    st.write("Mismatched Sites with Filter:")
-    st.dataframe(mismatched_df)
+    # Group by Cluster, Zone, Site Alias, Start Time, and End Time
+    grouped_mismatches = mismatched_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time'], dropna=False).size().reset_index(name='Count')
+
+    if not grouped_mismatches.empty:
+        display_grouped_data(grouped_mismatches, "Mismatched Sites")
+    else:
+        st.write("No mismatched sites found after filtering.")
 
 # Streamlit app
 st.title('Site Access and RMS/Alarms Comparison Tool')
