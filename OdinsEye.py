@@ -39,8 +39,11 @@ def display_grouped_data(grouped_df):
             
             zone_df = cluster_df[cluster_df['Zone'] == zone]
             
-            # Create a new dataframe for display containing only the relevant columns
-            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']]
+            # Create a copy of the dataframe to handle hiding repeated Site Alias
+            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
+            
+            # Hide repeated Site Alias by replacing repeated values with empty strings
+            display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
             
             # Display the table
             st.table(display_df)
