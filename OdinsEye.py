@@ -80,9 +80,19 @@ def display_matched_sites(matched_df):
 
 # Function to find mismatches with Current Alarms
 def find_current_alarm_mismatches(site_access_df, current_alarms_df):
+    # Extract the first part of the Site from Current Alarms for comparison
     current_alarms_df['SiteName_Extracted'] = current_alarms_df['Site'].apply(extract_site)
-    merged_df = pd.merge(site_access_df, current_alarms_df, left_on='SiteName', right_on='SiteName_Extracted', how='right', indicator=True)
-    return merged_df[merged_df['_merge'] == 'right_only']
+    
+    # Extract the SiteName from Site Access for comparison
+    site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
+    
+    # Merge to find mismatches
+    merged_df = pd.merge(current_alarms_df, site_access_df, left_on='SiteName_Extracted', right_on='SiteName_Extracted', how='left', indicator=True)
+
+    # Filter for mismatches
+    mismatches_df = merged_df[merged_df['_merge'] == 'left_only']
+    
+    return mismatches_df
 
 # Streamlit app
 st.title('Site Access and RMS Comparison Tool')
