@@ -17,7 +17,7 @@ def find_mismatches(site_access_df, rms_df):
     mismatches_df = merged_df[merged_df['_merge'] == 'right_only']
 
     # Group by Cluster, Zone, Site Alias, Start Time, and End Time
-    grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'StartDate', 'EndDate']).size().reset_index(name='Count')
+    grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time']).size().reset_index(name='Count')
 
     return grouped_df
 
@@ -56,7 +56,7 @@ def display_grouped_data(grouped_df, title):
             st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)  # Zone in italic bold with smaller font
             
             zone_df = cluster_df[cluster_df['Zone'] == zone]
-            display_df = zone_df[['Site Alias', 'StartDate', 'EndDate', 'Count']].copy()
+            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
             
             display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
             display_df = display_df.fillna('')  # Replace NaN with empty strings
