@@ -171,7 +171,7 @@ if site_access_file and rms_file and current_alarms_file:
                     message += "\n"
 
             # Send message to Telegram
-            bot_token = "6731039127"  # Your bot token
+            bot_token = "6731039127:AAF9sZHN-VibkDDBApg8ShTJAxzJAnX1cGg"  # Your bot token
             chat_id = "-4192344490"    # Your group ID
             if send_telegram_notification(message, bot_token, chat_id):
                 st.success("Notification sent successfully!")
