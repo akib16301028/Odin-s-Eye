@@ -151,24 +151,19 @@ if site_access_file and rms_file and current_alarms_file:
     if not filtered_matched_df.empty:
         display_matched_sites(filtered_matched_df)
 
-        # Button to send Telegram notification
+        # Button to send Telegram notification for mismatched sites
         if st.button("Send Telegram Notification"):
             message = ""
-            clusters = filtered_matched_df['Cluster'].unique()
+            zones = filtered_mismatches_df['Zone'].unique()
 
-            for cluster in clusters:
-                cluster_df = filtered_matched_df[filtered_matched_df['Cluster'] == cluster]
-                zones = cluster_df['Zone'].unique()
+            for zone in zones:
+                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+                
+                message += f"<b>{zone}</b>\n"
 
-                for zone in zones:
-                    zone_df = cluster_df[cluster_df['Zone'] == zone]
-                    count_by_site = zone_df['Site Alias'].value_counts()
-                    
-                    message += f"<b>{cluster}</b>\n<pre>{zone}</pre>\n\n"
-
-                    for site_alias, count in count_by_site.items():
-                        message += f"{site_alias} - {count}\n"
-                    message += "\n"
+                for _, row in zone_df.iterrows():
+                    message += f"<pre>{row['Site Alias']}</pre>\n"
+                    message += f"Start Time: {row['Start Time']} End Time: {row['End Time']}\n"
 
             # Send message to Telegram
             bot_token = "6731039127:AAF9sZHN-VibkDDBApg8ShTJAxzJAnX1cGg"  # Your bot token
