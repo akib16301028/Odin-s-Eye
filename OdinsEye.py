@@ -67,7 +67,7 @@ def display_matched_sites(matched_df):
     st.dataframe(styled_df)
 
 # Streamlit app
-st.title('Site Access and RMS/Alarms Comparison Tool')
+st.title('Odin-s-Eye')
 
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
