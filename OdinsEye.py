@@ -56,13 +56,32 @@ def display_grouped_data(grouped_df, title):
             st.table(display_df)
         st.markdown("---")
 
-# Function to display matched sites with status
+# Function to display matched sites with status and filters
 def display_matched_sites(matched_df):
+    # Filter for Valid/Expired
+    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"])
+    
+    if status_filter == "Valid":
+        filtered_df = matched_df[matched_df['Status'] == "Valid"]
+    elif status_filter == "Expired":
+        filtered_df = matched_df[matched_df['Status'] == "Expired"]
+    else:
+        filtered_df = matched_df
+
+    # Time filtering
+    start_time_filter = st.time_input("Select Start Time", value=datetime.now().time())
+    end_time_filter = st.time_input("Select End Time", value=datetime.now().time())
+
+    # Convert time filters to datetime
+    filtered_df = filtered_df[(filtered_df['Start Time'].dt.time >= start_time_filter) & 
+                              (filtered_df['End Time'].dt.time <= end_time_filter)]
+
+    # Highlighting the status in the table
     color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
     def highlight_status(status):
         return color_map.get(status, '')
 
-    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
+    styled_df = filtered_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
