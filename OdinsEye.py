@@ -58,7 +58,6 @@ def display_grouped_data(grouped_df, title):
 
 # Function to display matched sites with status
 def display_matched_sites(matched_df):
-    # Highlighting the status in the table
     color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
     def highlight_status(status):
         return color_map.get(status, '')
@@ -78,6 +77,8 @@ if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
 if "filter_date" not in st.session_state:
     st.session_state.filter_date = datetime.now().date()
+if "status_filter" not in st.session_state:
+    st.session_state.status_filter = "All"
 
 if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
@@ -89,12 +90,21 @@ if site_access_file and rms_file and current_alarms_file:
     # Filter inputs (date and time)
     selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
     selected_time = st.time_input("Select Time", value=st.session_state.filter_time)
+    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
+
+    # Button to clear filters
+    if st.button("Clear Filters"):
+        st.session_state.filter_date = datetime.now().date()
+        st.session_state.filter_time = datetime.now().time()
+        st.session_state.status_filter = "All"
 
     # Update session state only when the user changes time or date
     if selected_date != st.session_state.filter_date:
         st.session_state.filter_date = selected_date
     if selected_time != st.session_state.filter_time:
         st.session_state.filter_time = selected_time
+    if status_filter != st.session_state.status_filter:
+        st.session_state.status_filter = status_filter
 
     # Combine selected date and time into a datetime object
     filter_datetime = datetime.combine(st.session_state.filter_date, st.session_state.filter_time)
@@ -107,25 +117,26 @@ if site_access_file and rms_file and current_alarms_file:
     # Process matches
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
     
-    # Filter matched data based on the same criteria
+    # Apply status filter to matched data
+    if st.session_state.status_filter == "Valid":
+        matched_df = matched_df[matched_df['Status'] == 'Valid']
+    elif st.session_state.status_filter == "Expired":
+        matched_df = matched_df[matched_df['Status'] == 'Expired']
+
+    # Filter matched data based on the same date and time criteria
     matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
     matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
     filtered_matched_df = matched_df[(matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)]
 
-    # Creating two columns for layout
-    col1, col2 = st.columns(2)
+    # Displaying the tables
+    if not filtered_mismatches_df.empty:
+        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
+        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
+    else:
+        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
+        display_grouped_data(mismatches_df, "All Mismatched Sites")
 
-    with col1:
-        if not filtered_mismatches_df.empty:
-            st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-            display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
-        else:
-            st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-            display_grouped_data(mismatches_df, "All Mismatched Sites")
-
-    with col2:
-        if not filtered_matched_df.empty:
-            display_matched_sites(filtered_matched_df)
-        else:
-            st.write("No matched sites found.")
-
+    if not filtered_matched_df.empty:
+        display_matched_sites(filtered_matched_df)
+    else:
+        st.write("No matched sites found.")
