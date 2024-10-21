@@ -56,21 +56,12 @@ def display_grouped_data(grouped_df, title):
             st.table(display_df)
         st.markdown("---")
 
-# Function to display matched sites with status and filters
-def display_matched_sites(matched_df, filter_datetime, status_filter):
+# Function to display matched sites with status
+def display_matched_sites(matched_df):
     color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
-
-    # Apply status filter (Valid/Expired)
-    if status_filter != 'All':
-        matched_df = matched_df[matched_df['Status'] == status_filter]
-
-    # Apply time filter
-    matched_df = matched_df[matched_df['Start Time'] > filter_datetime]
-
     def highlight_status(status):
         return color_map.get(status, '')
 
-    # Apply the styling and display the filtered dataframe
     styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
@@ -118,13 +109,8 @@ if site_access_file and rms_file and current_alarms_file:
         st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
         display_grouped_data(mismatches_df, "All Mismatched Sites")
 
-    # Add Valid/Expired filter for matched sites
-    status_filter = st.selectbox("Filter Matched Sites by Status", options=["All", "Valid", "Expired"])
-
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
-    matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
-
     if not matched_df.empty:
-        display_matched_sites(matched_df, filter_datetime, status_filter)
+        display_matched_sites(matched_df)
     else:
         st.write("No matched sites found.")
