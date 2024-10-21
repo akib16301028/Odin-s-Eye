@@ -90,7 +90,6 @@ if site_access_file and rms_file and current_alarms_file:
     # Filter inputs (date and time)
     selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
     selected_time = st.time_input("Select Time", value=st.session_state.filter_time)
-    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
 
     # Button to clear filters
     if st.button("Clear Filters"):
@@ -103,8 +102,6 @@ if site_access_file and rms_file and current_alarms_file:
         st.session_state.filter_date = selected_date
     if selected_time != st.session_state.filter_time:
         st.session_state.filter_time = selected_time
-    if status_filter != st.session_state.status_filter:
-        st.session_state.status_filter = status_filter
 
     # Combine selected date and time into a datetime object
     filter_datetime = datetime.combine(st.session_state.filter_date, st.session_state.filter_time)
@@ -116,7 +113,7 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Process matches
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
-    
+
     # Apply status filter to matched data
     if st.session_state.status_filter == "Valid":
         matched_df = matched_df[matched_df['Status'] == 'Valid']
@@ -135,6 +132,13 @@ if site_access_file and rms_file and current_alarms_file:
     else:
         st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
         display_grouped_data(mismatches_df, "All Mismatched Sites")
+
+    # Add the status filter dropdown right before the matched sites table
+    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
+
+    # Update session state for status filter
+    if status_filter != st.session_state.status_filter:
+        st.session_state.status_filter = status_filter
 
     if not filtered_matched_df.empty:
         display_matched_sites(filtered_matched_df)
