@@ -56,32 +56,14 @@ def display_grouped_data(grouped_df, title):
             st.table(display_df)
         st.markdown("---")
 
-# Function to display matched sites with status and filters
+# Function to display matched sites with status
 def display_matched_sites(matched_df):
-    # Filter for Valid/Expired
-    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"])
-    
-    if status_filter == "Valid":
-        filtered_df = matched_df[matched_df['Status'] == "Valid"]
-    elif status_filter == "Expired":
-        filtered_df = matched_df[matched_df['Status'] == "Expired"]
-    else:
-        filtered_df = matched_df
-
-    # Time filtering
-    start_time_filter = st.time_input("Select Start Time", value=datetime.now().time())
-    end_time_filter = st.time_input("Select End Time", value=datetime.now().time())
-
-    # Convert time filters to datetime
-    filtered_df = filtered_df[(filtered_df['Start Time'].dt.time >= start_time_filter) & 
-                              (filtered_df['End Time'].dt.time <= end_time_filter)]
-
     # Highlighting the status in the table
     color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
     def highlight_status(status):
         return color_map.get(status, '')
 
-    styled_df = filtered_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
+    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
@@ -117,19 +99,33 @@ if site_access_file and rms_file and current_alarms_file:
     # Combine selected date and time into a datetime object
     filter_datetime = datetime.combine(st.session_state.filter_date, st.session_state.filter_time)
 
+    # Process mismatches
     mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
     mismatches_df['Start Time'] = pd.to_datetime(mismatches_df['Start Time'], errors='coerce')
     filtered_mismatches_df = mismatches_df[mismatches_df['Start Time'] > filter_datetime]
 
-    if not filtered_mismatches_df.empty:
-        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
-    else:
-        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-        display_grouped_data(mismatches_df, "All Mismatched Sites")
-
+    # Process matches
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
-    if not matched_df.empty:
-        display_matched_sites(matched_df)
-    else:
-        st.write("No matched sites found.")
+    
+    # Filter matched data based on the same criteria
+    matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
+    matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
+    filtered_matched_df = matched_df[(matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)]
+
+    # Creating two columns for layout
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if not filtered_mismatches_df.empty:
+            st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
+            display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
+        else:
+            st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
+            display_grouped_data(mismatches_df, "All Mismatched Sites")
+
+    with col2:
+        if not filtered_matched_df.empty:
+            display_matched_sites(filtered_matched_df)
+        else:
+            st.write("No matched sites found.")
+
