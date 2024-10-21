@@ -105,6 +105,12 @@ site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
 
+# Initialize session state to store the filter date and time
+if "filter_time" not in st.session_state:
+    st.session_state.filter_time = datetime.now().time()
+if "filter_date" not in st.session_state:
+    st.session_state.filter_date = datetime.now().date()
+
 if site_access_file and rms_file and current_alarms_file:
     # Load the Site Access Excel as-is
     site_access_df = pd.read_excel(site_access_file)
@@ -119,11 +125,11 @@ if site_access_file and rms_file and current_alarms_file:
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
     # Date and time filter for Start Time
-    filter_date = st.date_input("Filter Start Time - Select Date", value=datetime.now().date())
-    filter_time = st.time_input("Filter Start Time - Select Time", value=datetime.now().time())
+    st.session_state.filter_date = st.date_input("Filter Start Time - Select Date", value=st.session_state.filter_date)
+    st.session_state.filter_time = st.time_input("Filter Start Time - Select Time", value=st.session_state.filter_time)
 
     # Combine date and time for filtering
-    filter_datetime = datetime.combine(filter_date, filter_time)
+    filter_datetime = datetime.combine(st.session_state.filter_date, st.session_state.filter_time)
 
     # Compare Site Access with the merged RMS/Alarms dataset and find mismatches
     mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
