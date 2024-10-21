@@ -114,16 +114,12 @@ if site_access_file and rms_file and current_alarms_file:
     # Process matches
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
 
-    # Apply status filter to matched data
-    if st.session_state.status_filter == "Valid":
-        matched_df = matched_df[matched_df['Status'] == 'Valid']
-    elif st.session_state.status_filter == "Expired":
-        matched_df = matched_df[matched_df['Status'] == 'Expired']
+    # Apply filtering conditions
+    status_filter_condition = matched_df['Status'] == st.session_state.status_filter if st.session_state.status_filter != "All" else True
+    time_filter_condition = (matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)
 
-    # Filter matched data based on the same date and time criteria
-    matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
-    matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
-    filtered_matched_df = matched_df[(matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)]
+    # Apply filters to matched data
+    filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
 
     # Displaying the tables
     if not filtered_mismatches_df.empty:
