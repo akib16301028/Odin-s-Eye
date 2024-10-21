@@ -143,7 +143,7 @@ if site_access_file and rms_file and current_alarms_file:
     if st.button("Send Telegram Notification"):
         # Send separate messages for each zone
         zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "6731039127:AAF9sZHN-VibkDDBApg8ShTJAxzJAnX1cGg"  # Your bot token
+        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Your bot token
         chat_id = "-4192344490"    # Your group ID
 
         for zone in zones:
