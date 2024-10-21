@@ -24,8 +24,7 @@ def find_mismatches(site_access_df, merged_df):
     merged_comparison_df = pd.merge(merged_df, site_access_df, left_on='Site', right_on='SiteName_Extracted', how='left', indicator=True)
     mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
     mismatches_df['End Time'] = mismatches_df['End Time'].fillna('')
-    grouped_df = mismatches_df.groupby(['Cluster', 'Zone', 'Site Alias', 'Start Time', 'End Time'], dropna=False).size().reset_index(name='Count')
-    return grouped_df
+    return mismatches_df
 
 # Function to find matched sites and their status
 def find_matched_sites(site_access_df, merged_df):
@@ -73,7 +72,7 @@ def send_telegram_notification(message, bot_token, chat_id):
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "parse_mode": "HTML"
+        "parse_mode": "Markdown"  # Use Markdown for plain text
     }
     response = requests.post(url, json=payload)
     return response.status_code == 200
@@ -133,6 +132,39 @@ if site_access_file and rms_file and current_alarms_file:
     # Apply filters to matched data
     filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
 
+    # Add the status filter dropdown right before the matched sites table
+    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
+
+    # Update session state for status filter
+    if status_filter != st.session_state.status_filter:
+        st.session_state.status_filter = status_filter
+
+    # Move the "Send Telegram Notification" button to the top
+    if st.button("Send Telegram Notification"):
+        message = ""
+        zones = filtered_mismatches_df['Zone'].unique()
+
+        for zone in zones:
+            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+            message += f"{zone}\n"  # Zone header
+
+            # Group by Site Alias and append Start Time and End Time
+            site_aliases = zone_df['Site Alias'].unique()
+            for site_alias in site_aliases:
+                site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                message += f"{site_alias}\n"
+                for _, row in site_df.iterrows():
+                    message += f"Start Time: {row['Start Time']} End Time: {row['End Time']}\n"
+                message += "\n"  # Blank line between different Site Aliases
+
+        # Send message to Telegram
+        bot_token = "6731039127:AAF9sZHN-VibkDDBApg8ShTJAxzJAnX1cGg"  # Your bot token
+        chat_id = "-4192344490"    # Your group ID
+        if send_telegram_notification(message, bot_token, chat_id):
+            st.success("Notification sent successfully!")
+        else:
+            st.error("Failed to send notification.")
+
     # Displaying the tables
     if not filtered_mismatches_df.empty:
         st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
@@ -141,36 +173,7 @@ if site_access_file and rms_file and current_alarms_file:
         st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
         display_grouped_data(mismatches_df, "All Mismatched Sites")
 
-    # Add the status filter dropdown right before the matched sites table
-    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
-
-    # Update session state for status filter
-    if status_filter != st.session_state.status_filter:
-        st.session_state.status_filter = status_filter
-
     if not filtered_matched_df.empty:
         display_matched_sites(filtered_matched_df)
-
-        # Button to send Telegram notification for mismatched sites
-        if st.button("Send Telegram Notification"):
-            message = ""
-            zones = filtered_mismatches_df['Zone'].unique()
-
-            for zone in zones:
-                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-                
-                message += f"<b>{zone}</b>\n"
-
-                for _, row in zone_df.iterrows():
-                    message += f"<pre>{row['Site Alias']}</pre>\n"
-                    message += f"Start Time: {row['Start Time']} End Time: {row['End Time']}\n"
-
-            # Send message to Telegram
-            bot_token = "6731039127:AAF9sZHN-VibkDDBApg8ShTJAxzJAnX1cGg"  # Your bot token
-            chat_id = "-4192344490"    # Your group ID
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success("Notification sent successfully!")
-            else:
-                st.error("Failed to send notification.")
     else:
         st.write("No matched sites found.")
