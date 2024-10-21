@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+from datetime import datetime
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -117,14 +118,26 @@ if site_access_file and rms_file and current_alarms_file:
     # Merge RMS and Current Alarms data
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
+    # Date and time filter for Start Time
+    filter_date = st.date_input("Filter Start Time - Select Date", value=datetime.now().date())
+    filter_time = st.time_input("Filter Start Time - Select Time", value=datetime.now().time())
+
+    # Combine date and time for filtering
+    filter_datetime = datetime.combine(filter_date, filter_time)
+
     # Compare Site Access with the merged RMS/Alarms dataset and find mismatches
     mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
 
-    if not mismatches_df.empty:
-        st.write("Mismatched Sites grouped by Cluster and Zone:")
-        display_grouped_data(mismatches_df, "Mismatched Sites")
+    # Filter the mismatches based on Start Time being after the selected date and time
+    mismatches_df['Start Time'] = pd.to_datetime(mismatches_df['Start Time'], errors='coerce')
+    filtered_mismatches_df = mismatches_df[mismatches_df['Start Time'] > filter_datetime]
+
+    if not filtered_mismatches_df.empty:
+        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
+        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
     else:
-        st.write("No mismatches found. All sites match between Site Access and RMS/Alarms.")
+        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
+        display_grouped_data(mismatches_df, "All Mismatched Sites")
 
     # Find matched sites and display with Valid/Expired status
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
