@@ -23,7 +23,7 @@ def find_mismatches(site_access_df, merged_df):
     site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
     merged_comparison_df = pd.merge(merged_df, site_access_df, left_on='Site', right_on='SiteName_Extracted', how='left', indicator=True)
     mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
-    mismatches_df['End Time'] = mismatches_df['End Time'].fillna('')
+    mismatches_df['End Time'] = mismatches_df['End Time'].fillna('Not Closed')  # Replace NaT with Not Closed
     return mismatches_df
 
 # Function to find matched sites and their status
@@ -141,12 +141,14 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Move the "Send Telegram Notification" button to the top
     if st.button("Send Telegram Notification"):
-        message = ""
+        # Send separate messages for each zone
         zones = filtered_mismatches_df['Zone'].unique()
+        bot_token = "6731039127:AAF9sZHN-VibkDDBApg8ShTJAxzJAnX1cGg"  # Your bot token
+        chat_id = "-4192344490"    # Your group ID
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message += f"{zone}\n"  # Zone header
+            message = f"{zone}\n"  # Zone header
 
             # Group by Site Alias and append Start Time and End Time
             site_aliases = zone_df['Site Alias'].unique()
@@ -154,18 +156,17 @@ if site_access_file and rms_file and current_alarms_file:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
                 message += f"{site_alias}\n"
                 for _, row in site_df.iterrows():
-                    message += f"Start Time: {row['Start Time']} End Time: {row['End Time']}\n"
+                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
                 message += "\n"  # Blank line between different Site Aliases
 
-        # Send message to Telegram
-        bot_token = "6731039127:AAF9sZHN-VibkDDBApg8ShTJAxzJAnX1cGg"  # Your bot token
-        chat_id = "-4192344490"    # Your group ID
-        if send_telegram_notification(message, bot_token, chat_id):
-            st.success("Notification sent successfully!")
-        else:
-            st.error("Failed to send notification.")
+            # Send message to Telegram
+            if send_telegram_notification(message, bot_token, chat_id):
+                st.success(f"Notification for zone '{zone}' sent successfully!")
+            else:
+                st.error(f"Failed to send notification for zone '{zone}'.")
 
-    # Displaying the tables
+    # Display mismatches
     if not filtered_mismatches_df.empty:
         st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
         display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
@@ -173,6 +174,7 @@ if site_access_file and rms_file and current_alarms_file:
         st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
         display_grouped_data(mismatches_df, "All Mismatched Sites")
 
+    # Display matched sites
     if not filtered_matched_df.empty:
         display_matched_sites(filtered_matched_df)
     else:
