@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
+import requests  # Add the requests library for sending notifications
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -66,6 +67,17 @@ def display_matched_sites(matched_df):
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
+# Function to send Telegram notification
+def send_telegram_notification(message, bot_token, chat_id):
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "HTML"
+    }
+    response = requests.post(url, json=payload)
+    return response.status_code == 200
+
 # Streamlit app
 st.title('Odin-s-Eye')
 
@@ -90,7 +102,6 @@ if site_access_file and rms_file and current_alarms_file:
     # Filter inputs (date and time)
     selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
     selected_time = st.time_input("Select Time", value=st.session_state.filter_time)
-    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
 
     # Button to clear filters
     if st.button("Clear Filters"):
@@ -103,8 +114,6 @@ if site_access_file and rms_file and current_alarms_file:
         st.session_state.filter_date = selected_date
     if selected_time != st.session_state.filter_time:
         st.session_state.filter_time = selected_time
-    if status_filter != st.session_state.status_filter:
-        st.session_state.status_filter = status_filter
 
     # Combine selected date and time into a datetime object
     filter_datetime = datetime.combine(st.session_state.filter_date, st.session_state.filter_time)
@@ -116,17 +125,13 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Process matches
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
-    
-    # Apply status filter to matched data
-    if st.session_state.status_filter == "Valid":
-        matched_df = matched_df[matched_df['Status'] == 'Valid']
-    elif st.session_state.status_filter == "Expired":
-        matched_df = matched_df[matched_df['Status'] == 'Expired']
 
-    # Filter matched data based on the same date and time criteria
-    matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
-    matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
-    filtered_matched_df = matched_df[(matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)]
+    # Apply filtering conditions
+    status_filter_condition = matched_df['Status'] == st.session_state.status_filter if st.session_state.status_filter != "All" else True
+    time_filter_condition = (matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)
+
+    # Apply filters to matched data
+    filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
 
     # Displaying the tables
     if not filtered_mismatches_df.empty:
@@ -136,7 +141,41 @@ if site_access_file and rms_file and current_alarms_file:
         st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
         display_grouped_data(mismatches_df, "All Mismatched Sites")
 
+    # Add the status filter dropdown right before the matched sites table
+    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
+
+    # Update session state for status filter
+    if status_filter != st.session_state.status_filter:
+        st.session_state.status_filter = status_filter
+
     if not filtered_matched_df.empty:
         display_matched_sites(filtered_matched_df)
+
+        # Button to send Telegram notification
+        if st.button("Send Telegram Notification"):
+            message = ""
+            clusters = filtered_matched_df['Cluster'].unique()
+
+            for cluster in clusters:
+                cluster_df = filtered_matched_df[filtered_matched_df['Cluster'] == cluster]
+                zones = cluster_df['Zone'].unique()
+
+                for zone in zones:
+                    zone_df = cluster_df[cluster_df['Zone'] == zone]
+                    count_by_site = zone_df['Site Alias'].value_counts()
+                    
+                    message += f"<b>{cluster}</b>\n<pre>{zone}</pre>\n\n"
+
+                    for site_alias, count in count_by_site.items():
+                        message += f"{site_alias} - {count}\n"
+                    message += "\n"
+
+            # Send message to Telegram
+            bot_token = "6731039127"  # Your bot token
+            chat_id = "-4192344490"    # Your group ID
+            if send_telegram_notification(message, bot_token, chat_id):
+                st.success("Notification sent successfully!")
+            else:
+                st.error("Failed to send notification.")
     else:
         st.write("No matched sites found.")
