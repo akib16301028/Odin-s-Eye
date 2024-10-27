@@ -85,15 +85,28 @@ if report_motion_file and current_motion_file and report_vibration_file and curr
 
     merged_df = merge_motion_vibration(report_motion_df, current_motion_df, report_vibration_df, current_vibration_df)
 
-    selected_date = st.sidebar.date_input("Select Start Date", value=datetime.now().date())
-    selected_time = st.sidebar.time_input("Select Start Time", value=time(0, 0))
-    start_time_filter = datetime.combine(selected_date, selected_time)
+    # Sidebar options for download and notifications
+    with st.sidebar:
+        # Download report button
+        csv_data = merged_df.to_csv(index=False).encode('utf-8')
+        st.download_button(label="Download Report as CSV", data=csv_data, file_name="alarm_summary.csv", mime="text/csv")
+
+        # Date and time filter
+        selected_date = st.date_input("Select Start Date", value=datetime.now().date())
+        selected_time = st.time_input("Select Start Time", value=time(0, 0))
+        start_time_filter = datetime.combine(selected_date, selected_time)
+
+        # Telegram notification button
+        if st.button("Telegram Notification", help="Send alarm summary to Telegram"):
+            summary_df = count_entries_by_zone(merged_df, start_time_filter)
+            zones = summary_df['Zone'].unique()
+            for zone in zones:
+                zone_df = summary_df[summary_df['Zone'] == zone]
+                total_motion = zone_df['Motion Count'].sum()
+                total_vibration = zone_df['Vibration Count'].sum()
+                send_telegram_notification(zone, zone_df, total_motion, total_vibration)
 
     summary_df = count_entries_by_zone(merged_df, start_time_filter)
-
-    # Button to download the report as CSV
-    csv_data = summary_df.to_csv(index=False).encode('utf-8')
-    st.download_button(label="Download Report as CSV", data=csv_data, file_name="alarm_summary.csv", mime="text/csv")
 
     zones = summary_df['Zone'].unique()
     for zone in zones:
@@ -110,10 +123,6 @@ if report_motion_file and current_motion_file and report_vibration_file and curr
 
         # Display the detailed table
         st.table(zone_df[['Zone', 'Site Alias', 'Motion Count', 'Vibration Count']])
-
-        # Telegram notification button
-        if st.button(f"Send Telegram Notification for Zone: {zone}", key=zone, help="Send to Telegram", use_container_width=True):
-            send_telegram_notification(zone, zone_df, total_motion, total_vibration)
 
     site_search = st.sidebar.text_input("Search for a specific site alias")
     if site_search:
