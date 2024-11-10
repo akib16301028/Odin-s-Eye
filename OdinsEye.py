@@ -101,8 +101,8 @@ with st.sidebar:
     if st.button("Send Telegram Notification"):
         if 'filtered_mismatches_df' in locals() and not filtered_mismatches_df.empty:
             zones = filtered_mismatches_df['Zone'].unique()
-            bot_token = "YOUR_TELEGRAM_BOT_TOKEN"  # Replace with your bot token
-            chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Replace with your chat/group ID
+            bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Replace with your bot token
+            chat_id = "-1001509039244"  # Replace with your chat/group ID
 
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
