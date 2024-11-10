@@ -83,6 +83,7 @@ st.title('Odin-s-Eye')
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
+user_name_file = st.file_uploader("Upload the USER NAME Excel", type=["xlsx"])
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -91,10 +92,11 @@ if "filter_date" not in st.session_state:
 if "status_filter" not in st.session_state:
     st.session_state.status_filter = "All"
 
-if site_access_file and rms_file and current_alarms_file:
+if site_access_file and rms_file and current_alarms_file and user_name_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
+    user_name_df = pd.read_excel(user_name_file)  # Reading the USER NAME file
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
@@ -144,11 +146,17 @@ if site_access_file and rms_file and current_alarms_file:
         # Send separate messages for each zone
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Your bot token
-        chat_id = "-1001509039244"    # Your group ID
+        chat_id = "-4537588687"    # Your group ID
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
             message = f"{zone}\n\n"  # Zone header
+
+            # Find the person responsible for the zone from the USER NAME file
+            zone_name_row = user_name_df[user_name_df['Zone'] == zone]
+            if not zone_name_row.empty:
+                responsible_name = zone_name_row.iloc[0]['Name']
+                message += f"@{responsible_name}, please take care of the sites as we found door open alarm without site access request.\n\n"
 
             # Group by Site Alias and append Start Time and End Time
             site_aliases = zone_df['Site Alias'].unique()
