@@ -99,33 +99,36 @@ with st.sidebar:
         st.session_state["selected_time"] = datetime.now().time()
         st.session_state["status_filter"] = "All"
     if st.button("Send Telegram Notification"):
-        zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "YOUR_TELEGRAM_BOT_TOKEN"  # Replace with your bot token
-        chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Replace with your chat/group ID
+        if 'filtered_mismatches_df' in locals() and not filtered_mismatches_df.empty:
+            zones = filtered_mismatches_df['Zone'].unique()
+            bot_token = "YOUR_TELEGRAM_BOT_TOKEN"  # Replace with your bot token
+            chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Replace with your chat/group ID
 
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            zonal_concern = get_zonal_concern(zone)  # Retrieve Zonal Concern for the zone
-            message = f"{zone}\n\n"
+            for zone in zones:
+                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+                zonal_concern = get_zonal_concern(zone)  # Retrieve Zonal Concern for the zone
+                message = f"{zone}\n\n"
 
-            # Group by Site Alias and add Start Time and End Time
-            site_aliases = zone_df['Site Alias'].unique()
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
+                # Group by Site Alias and add Start Time and End Time
+                site_aliases = zone_df['Site Alias'].unique()
+                for site_alias in site_aliases:
+                    site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                    message += f"{site_alias}\n"
+                    for _, row in site_df.iterrows():
+                        end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                        message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                    message += "\n"
 
-            # Add the Zonal Concern message at the end
-            message += f"@{zonal_concern} bhai, please take care of these sites as we found door open alarms without site access requests."
+                # Add the Zonal Concern message at the end
+                message += f"@{zonal_concern} bhai, please take care of these sites as we found door open alarms without site access requests."
 
-            # Send the message to Telegram
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success(f"Notification for zone '{zone}' sent successfully!")
-            else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
+                # Send the message to Telegram
+                if send_telegram_notification(message, bot_token, chat_id):
+                    st.success(f"Notification for zone '{zone}' sent successfully!")
+                else:
+                    st.error(f"Failed to send notification for zone '{zone}'.")
+        else:
+            st.warning("No mismatches to notify.")
 
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
@@ -143,7 +146,7 @@ if site_access_file and rms_file and current_alarms_file:
     # Process mismatches
     mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
     mismatches_df['Start Time'] = pd.to_datetime(mismatches_df['Start Time'], errors='coerce')
-    filtered_mismatches_df = mismatches_df[mismatches_df['Start Time'] > filter_datetime]
+    filtered_mismatches_df = mismatches_df[mismatches_df['Start Time'] > filter_datetime] if not mismatches_df.empty else pd.DataFrame()
 
     # Process matched sites
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
@@ -151,16 +154,10 @@ if site_access_file and rms_file and current_alarms_file:
     time_filter_condition = (matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)
     filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
 
-    # Display mismatches
-    if not filtered_mismatches_df.empty:
-        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
-    else:
-        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-        display_grouped_data(mismatches_df, "All Mismatched Sites")
+    display_grouped_data(filtered_mismatches_df, "Mismatched Sites (Door Open Alarm without Site Access)")
+    display_matched_sites(filtered_matched_df)
 
-    # Display matched sites
-    if not filtered_matched_df.empty:
-        display_matched_sites(filtered_matched_df)
-    else:
+    if filtered_mismatches_df.empty:
+        st.write("No mismatches found for the selected filters.")
+    if filtered_matched_df.empty:
         st.write("No matched sites meet the current filters.")
