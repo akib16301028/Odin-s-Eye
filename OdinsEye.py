@@ -91,9 +91,6 @@ if "filter_date" not in st.session_state:
 if "status_filter" not in st.session_state:
     st.session_state.status_filter = "All"
 
-# Load the USER NAME file from repository
-user_name_df = pd.read_excel('USER NAME.xlsx')  # Assuming the file is in the current repository
-
 if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
@@ -142,38 +139,42 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-    # Move the "Send Telegram Notification" button to the top
-    if st.button("Send Telegram Notification"):
-        # Send separate messages for each zone
-        zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Your bot token
-        chat_id = "-4537588687"    # Your group ID
+    # Assuming the USER NAME file is in the repository
+user_name_file = "USER NAME.xlsx"
+user_name_df = pd.read_excel(user_name_file)
 
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"{zone}\n\n"  # Zone header
+# Streamlit app
+if st.button("Send Telegram Notification"):
+    # Send separate messages for each zone
+    zones = filtered_mismatches_df['Zone'].unique()
+    bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Your bot token
+    chat_id = "-4537588687"    # Your group ID
 
-            # Find the person responsible for the zone from the USER NAME file
-            zone_name_row = user_name_df[user_name_df['Zone'] == zone]
-            if not zone_name_row.empty:
-                responsible_name = zone_name_row.iloc[0]['Name']
-                message += f"@{responsible_name}, please take care of the sites as we found door open alarm without site access request.\n\n"
+    for zone in zones:
+        zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+        message = f"{zone}\n\n"  # Zone header
 
-            # Group by Site Alias and append Start Time and End Time
-            site_aliases = zone_df['Site Alias'].unique()
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"  # Blank line between different Site Aliases
+        # Find the name of the responsible person from the USER NAME file
+        responsible_person = user_name_df[user_name_df['Zone'] == zone]['Name'].values
+        if responsible_person:
+            message += f"@{responsible_person[0]} please take care of the sites as we found door open alarm without site access request.\n\n"
 
-            # Send message to Telegram
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success(f"Notification for zone '{zone}' sent successfully!")
-            else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
+        # Group by Site Alias and append Start Time and End Time
+        site_aliases = zone_df['Site Alias'].unique()
+        for site_alias in site_aliases:
+            site_df = zone_df[zone_df['Site Alias'] == site_alias]
+            message += f"{site_alias}\n"
+            for _, row in site_df.iterrows():
+                end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+            message += "\n"  # Blank line between different Site Aliases
+
+        # Send message to Telegram
+        if send_telegram_notification(message, bot_token, chat_id):
+            st.success(f"Notification for zone '{zone}' sent successfully!")
+        else:
+            st.error(f"Failed to send notification for zone '{zone}'.")
+
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
