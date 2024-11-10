@@ -91,6 +91,9 @@ if "filter_date" not in st.session_state:
 if "status_filter" not in st.session_state:
     st.session_state.status_filter = "All"
 
+# Load the USER NAME file from repository
+user_name_df = pd.read_excel('USER NAME.xlsx')  # Assuming the file is in the current repository
+
 if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
@@ -149,6 +152,12 @@ if site_access_file and rms_file and current_alarms_file:
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
             message = f"{zone}\n\n"  # Zone header
+
+            # Find the person responsible for the zone from the USER NAME file
+            zone_name_row = user_name_df[user_name_df['Zone'] == zone]
+            if not zone_name_row.empty:
+                responsible_name = zone_name_row.iloc[0]['Name']
+                message += f"@{responsible_name}, please take care of the sites as we found door open alarm without site access request.\n\n"
 
             # Group by Site Alias and append Start Time and End Time
             site_aliases = zone_df['Site Alias'].unique()
