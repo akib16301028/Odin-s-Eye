@@ -23,7 +23,7 @@ def find_mismatches(site_access_df, merged_df):
     site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
     merged_comparison_df = pd.merge(merged_df, site_access_df, left_on='Site', right_on='SiteName_Extracted', how='left', indicator=True)
     mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
-    mismatches_df['End Time'] = mismatches_df['End Time'].fillna('Not Closed')
+    mismatches_df['End Time'] = mismatches_df['End Time'].fillna('Not Closed')  # Replace NaT with Not Closed
     return mismatches_df
 
 # Function to find matched sites and their status
@@ -66,7 +66,15 @@ def display_matched_sites(matched_df):
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
-# Function to send Telegram notification
+# Load Zonal Concerns data from the repository file
+zonal_concerns_df = pd.read_excel("USER NAME.xlsx")  # Ensure "USER NAME.xlsx" is in the repository root
+
+# Function to get Zonal Concern based on Zone
+def get_zonal_concern(zone):
+    concern = zonal_concerns_df.loc[zonal_concerns_df['Zone'] == zone, 'Name']
+    return concern.iloc[0] if not concern.empty else "concerned personnel"
+
+# Function to send Telegram notification with Zonal Concern
 def send_telegram_notification(message, bot_token, chat_id):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
@@ -80,53 +88,29 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('Odin-s-Eye')
 
-# Sidebar filters
-st.sidebar.title("Filters")
-selected_date = st.sidebar.date_input("Select Date", value=datetime.now().date())
-selected_time = st.sidebar.time_input("Select Time", value=datetime.now().time())
-status_filter = st.sidebar.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
-if st.sidebar.button("Clear Filters"):
-    selected_date = datetime.now().date()
-    selected_time = datetime.now().time()
-    status_filter = "All"
+# Sidebar for filter options
+with st.sidebar:
+    st.header("Filters")
+    selected_date = st.date_input("Select Date", value=datetime.now().date())
+    selected_time = st.time_input("Select Time", value=datetime.now().time())
+    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
+    if st.button("Clear Filters"):
+        st.session_state["selected_date"] = datetime.now().date()
+        st.session_state["selected_time"] = datetime.now().time()
+        st.session_state["status_filter"] = "All"
+    if st.button("Send Telegram Notification"):
+        zones = filtered_mismatches_df['Zone'].unique()
+        bot_token = "YOUR_TELEGRAM_BOT_TOKEN"  # Replace with your bot token
+        chat_id = "YOUR_TELEGRAM_CHAT_ID"  # Replace with your chat/group ID
 
-filter_datetime = datetime.combine(selected_date, selected_time)
-
-site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
-rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
-current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
-
-# Load USER NAME file for zonal concerns
-zonal_concerns_file = 'path_to_your_file/USER_NAME.xlsx'  # Path to the USER NAME file
-zonal_concerns_df = pd.read_excel(zonal_concerns_file)
-
-if site_access_file and rms_file and current_alarms_file:
-    site_access_df = pd.read_excel(site_access_file)
-    rms_df = pd.read_excel(rms_file, header=2)
-    current_alarms_df = pd.read_excel(current_alarms_file, header=2)
-
-    merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
-
-    # Process mismatches
-    mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
-    mismatches_df['Start Time'] = pd.to_datetime(mismatches_df['Start Time'], errors='coerce')
-    filtered_mismatches_df = mismatches_df[mismatches_df['Start Time'] > filter_datetime]
-
-    # Process matches
-    matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
-    status_filter_condition = matched_df['Status'] == status_filter if status_filter != "All" else True
-    time_filter_condition = (matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)
-    filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
-
-    # Telegram notification button in sidebar
-    if st.sidebar.button("Send Telegram Notification"):
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Your bot token
-        chat_id = "-1001509039244"  # Your group ID
-
-        for zone in filtered_mismatches_df['Zone'].unique():
+        for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+            zonal_concern = get_zonal_concern(zone)  # Retrieve Zonal Concern for the zone
             message = f"{zone}\n\n"
-            for site_alias in zone_df['Site Alias'].unique():
+
+            # Group by Site Alias and add Start Time and End Time
+            site_aliases = zone_df['Site Alias'].unique()
+            for site_alias in site_aliases:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
                 message += f"{site_alias}\n"
                 for _, row in site_df.iterrows():
@@ -134,14 +118,38 @@ if site_access_file and rms_file and current_alarms_file:
                     message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
                 message += "\n"
 
-            zonal_concern = zonal_concerns_df.loc[zonal_concerns_df['Zone'] == zone, 'Name'].values
-            zonal_concern_text = f"@{zonal_concern[0]} bhai, please take care of this sites as we found door open alarm without site access request." if zonal_concern else ""
-            message += zonal_concern_text
+            # Add the Zonal Concern message at the end
+            message += f"@{zonal_concern} bhai, please take care of these sites as we found door open alarms without site access requests."
 
+            # Send the message to Telegram
             if send_telegram_notification(message, bot_token, chat_id):
                 st.success(f"Notification for zone '{zone}' sent successfully!")
             else:
                 st.error(f"Failed to send notification for zone '{zone}'.")
+
+site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
+rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
+current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
+
+if site_access_file and rms_file and current_alarms_file:
+    site_access_df = pd.read_excel(site_access_file)
+    rms_df = pd.read_excel(rms_file, header=2)
+    current_alarms_df = pd.read_excel(current_alarms_file, header=2)
+
+    # Merge RMS and Alarms data
+    merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
+    filter_datetime = datetime.combine(selected_date, selected_time)
+
+    # Process mismatches
+    mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
+    mismatches_df['Start Time'] = pd.to_datetime(mismatches_df['Start Time'], errors='coerce')
+    filtered_mismatches_df = mismatches_df[mismatches_df['Start Time'] > filter_datetime]
+
+    # Process matched sites
+    matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
+    status_filter_condition = matched_df['Status'] == status_filter if status_filter != "All" else True
+    time_filter_condition = (matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)
+    filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
@@ -155,4 +163,4 @@ if site_access_file and rms_file and current_alarms_file:
     if not filtered_matched_df.empty:
         display_matched_sites(filtered_matched_df)
     else:
-        st.write("No matched sites found.")
+        st.write("No matched sites meet the current filters.")
