@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
-import requests  # For sending Telegram notifications
+import requests  # Add the requests library for sending notifications
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -77,6 +77,20 @@ def send_telegram_notification(message, bot_token, chat_id):
     response = requests.post(url, json=payload)
     return response.status_code == 200
 
+# Load the Excel file that contains Zone and Name information
+excel_file_path = "path/to/your/repo/USER_NAME.xlsx"  # Replace with actual path to the file
+user_data_df = pd.read_excel(excel_file_path)
+
+# Clean up column names in case of extra spaces
+user_data_df.columns = user_data_df.columns.str.strip()
+
+# Function to get the name from the Excel file based on zone name
+def get_name_from_zone(zone_name):
+    match_row = user_data_df[user_data_df['Zone'] == zone_name]
+    if not match_row.empty:
+        return match_row.iloc[0]['Name']
+    return None  # Return None if no match is found
+
 # Streamlit app
 st.title('Odin-s-Eye')
 
@@ -141,36 +155,30 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Move the "Send Telegram Notification" button to the top
     if st.button("Send Telegram Notification"):
+        # Send separate messages for each zone
         zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-1001509039244"
+        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Your bot token
+        chat_id = "-4537588687"    # Your group ID
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
-            site_aliases = zone_df['Site Alias'].unique()
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success(f"Notification for zone '{zone}' sent successfully!")
+            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # First line in bold: Door Open Notification
+
+            # Match the zone name with the Excel file and get the name
+            name = get_name_from_zone(zone)
+            if name:
+                message += f"@{name}, please take care.\n"  # Add name and take care message at the end
             else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
+                message += "No name found for this zone.\n"  # If no name is found for this zone
 
-    # Display mismatches
-    if not filtered_mismatches_df.empty:
-        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
-    else:
-        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-        display_grouped_data(mismatches_df, "All Mismatched Sites")
+            # Add site data to the message
+            for site in zone_df['Site Alias'].unique():
+                message += f"{site}\n"
+                site_data = zone_df[zone_df['Site Alias'] == site]
+                for start_time, end_time in zip(site_data['Start Time'], site_data['End Time']):
+                    message += f"Start Time: {start_time} End Time: {end_time}\n"
+                message += "\n"  # Blank line between different Site Aliases
 
-    # Display matched sites
-    display_matched_sites(filtered_matched_df)
-
-else:
-    st.write("Please upload all required files.")
+            # Send the message via Telegram
+            send_telegram_notification(message, bot_token, chat_id)
+            st.success("Telegram message sent successfully.")
