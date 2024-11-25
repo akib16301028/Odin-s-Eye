@@ -143,12 +143,11 @@ if site_access_file and rms_file and current_alarms_file:
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+        chat_id = "-1001509039244"
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"*Door Open Alert*\n\n*{zone}*\n" # Bold "Door Open Notification"
-            message = f"*================*\n\n"
+            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
