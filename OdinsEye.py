@@ -148,13 +148,13 @@ if site_access_file and rms_file and current_alarms_file:
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"###{zone}\n\n"  # Zone header
+            message = f"### {zone}\n\n"  # Zone header
 
             # Group by Site Alias and append Start Time and End Time
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"{site_alias}\n"
+                message += f"#{site_alias}\n"
                 for _, row in site_df.iterrows():
                     end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
                     message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
