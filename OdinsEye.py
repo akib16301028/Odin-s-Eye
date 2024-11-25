@@ -148,7 +148,7 @@ if site_access_file and rms_file and current_alarms_file:
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"<b>{zone}</b>\n\n"  # Zone header
+            message = f"*{zone}*\n\n"  # Zone header
 
             # Group by Site Alias and append Start Time and End Time
             site_aliases = zone_df['Site Alias'].unique()
