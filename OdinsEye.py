@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
+import os
 import requests  # Add the requests library for sending notifications
 
 # Function to extract the first part of the SiteName before the first underscore
@@ -77,26 +78,22 @@ def send_telegram_notification(message, bot_token, chat_id):
     response = requests.post(url, json=payload)
     return response.status_code == 200
 
-# Load the Excel file that contains Zone and Name information
-excel_file_path = "path/to/your/repo/USER_NAME.xlsx"  # Replace with actual path to the file
-user_data_df = pd.read_excel(excel_file_path)
-
-# Clean up column names in case of extra spaces
-user_data_df.columns = user_data_df.columns.str.strip()
-
-# Function to get the name from the Excel file based on zone name
-def get_name_from_zone(zone_name):
-    match_row = user_data_df[user_data_df['Zone'] == zone_name]
-    if not match_row.empty:
-        return match_row.iloc[0]['Name']
-    return None  # Return None if no match is found
-
 # Streamlit app
 st.title('Odin-s-Eye')
 
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
+
+# Path to the USER_NAME.xlsx file in your repository
+user_data_file_path = os.path.join(os.getcwd(), 'USER NAME.xlsx')
+
+# Check if USER_NAME.xlsx exists in the repository
+if os.path.exists(user_data_file_path):
+    user_data_df = pd.read_excel(user_data_file_path)
+else:
+    st.error("File 'USER NAME.xlsx' not found in the expected directory.")
+    user_data_df = pd.DataFrame()  # Empty dataframe if file is not found
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -158,27 +155,33 @@ if site_access_file and rms_file and current_alarms_file:
         # Send separate messages for each zone
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Your bot token
-        chat_id = "-4537588687"    # Your group ID
+        chat_id = "-1001509039244"    # Your group ID
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # First line in bold: Door Open Notification
+            message = f"*Door Open Notification*\n\n{zone}\n\n"  # Zone header
 
-            # Match the zone name with the Excel file and get the name
-            name = get_name_from_zone(zone)
-            if name:
-                message += f"@{name}, please take care.\n"  # Add name and take care message at the end
-            else:
-                message += "No name found for this zone.\n"  # If no name is found for this zone
+            # Match Zone to Name from USER_NAME.xlsx
+            if not user_data_df.empty:
+                matched_name = user_data_df[user_data_df['Zone'] == zone]['Name']
+                if not matched_name.empty:
+                    message += f"@{matched_name.values[0]}, please take care.\n"
 
-            # Add site data to the message
-            for site in zone_df['Site Alias'].unique():
-                message += f"{site}\n"
-                site_data = zone_df[zone_df['Site Alias'] == site]
-                for start_time, end_time in zip(site_data['Start Time'], site_data['End Time']):
-                    message += f"Start Time: {start_time} End Time: {end_time}\n"
-                message += "\n"  # Blank line between different Site Aliases
-
+            # Group by Site Alias and append Start Time and End Time
+            for _, row in zone_df.iterrows():
+                message += f"\n#{row['Site']} ({row['Cluster']})\n"
+                message += f"Start Time: {row['Start Time']} End Time: {row['End Time']}\n"
+            
             # Send the message via Telegram
             send_telegram_notification(message, bot_token, chat_id)
-            st.success("Telegram message sent successfully.")
+
+        st.success("Notification sent successfully!")
+
+    # Display the filtered mismatches table
+    display_grouped_data(filtered_mismatches_df, "Filtered Mismatches")
+
+    # Display matched sites table
+    display_matched_sites(filtered_matched_df)
+
+else:
+    st.warning("Please upload the required Excel files.")
