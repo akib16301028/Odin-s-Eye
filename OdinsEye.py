@@ -142,8 +142,8 @@ if site_access_file and rms_file and current_alarms_file:
     # Move the "Send Telegram Notification" button to the top
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "YOUR_BOT_TOKEN"
-        chat_id = "YOUR_CHAT_ID"
+        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+        chat_id = "-1001509039244"
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
