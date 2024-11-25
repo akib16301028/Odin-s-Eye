@@ -147,7 +147,7 @@ if site_access_file and rms_file and current_alarms_file:
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"*Door Open Alert*\n\n*{zone}*\n" # Bold "Door Open Notification"
+            message = f"*Door Open Alert*\n*================*\n*{zone}*\n" # Bold "Door Open Notification"
             message = f"*================*\n\n"
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
