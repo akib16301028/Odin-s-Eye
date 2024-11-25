@@ -141,14 +141,14 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Move the "Send Telegram Notification" button to the top
     if st.button("Send Telegram Notification"):
-        # Send separate messages for each zone
+       # Send separate messages for each zone
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Your bot token
-        chat_id = "-4537588687"    # Your group ID
+        chat_id = "-1001509039244"    # Your group ID
 
-        for zone in zones:
+       for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"*{zone}*\n\n"  # Zone header
+             message = f"*{zone}*\n\n"  # Zone header
 
             # Group by Site Alias and append Start Time and End Time
             site_aliases = zone_df['Site Alias'].unique()
