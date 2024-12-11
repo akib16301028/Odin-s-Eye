@@ -80,6 +80,16 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('Odin-s-Eye')
 
+# Add a sidebar to display the USER NAME file
+st.sidebar.title("File Information")
+
+try:
+    user_name_df = pd.read_csv("USER NAME.csv")  # Adjust path as needed
+    st.sidebar.write("**USER NAME File Content:**")
+    st.sidebar.table(user_name_df)
+except FileNotFoundError:
+    st.sidebar.error("USER NAME file not found. Ensure it exists in the repository.")
+
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
