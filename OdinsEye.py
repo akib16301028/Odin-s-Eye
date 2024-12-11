@@ -80,20 +80,15 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('Odin-s-Eye')
 
-# Add a sidebar to display the USER NAME file
-st.sidebar.title("File Information")
+# Add the sidebar for user inputs
+st.sidebar.title("Settings")
 
-try:
-    user_name_df = pd.read_excel("USER NAME.xlsx")  # Adjust path as needed
-    st.sidebar.write("**USER NAME File Content:**")
-    st.sidebar.table(user_name_df)
-except FileNotFoundError:
-    st.sidebar.error("USER NAME file not found. Ensure it exists in the repository.")
+# Upload files
+site_access_file = st.sidebar.file_uploader("Upload the Site Access Excel", type=["xlsx"])
+rms_file = st.sidebar.file_uploader("Upload the RMS Excel", type=["xlsx"])
+current_alarms_file = st.sidebar.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
 
-site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
-rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
-current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
-
+# Filter inputs (date and time) in the sidebar
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
 if "filter_date" not in st.session_state:
@@ -101,22 +96,48 @@ if "filter_date" not in st.session_state:
 if "status_filter" not in st.session_state:
     st.session_state.status_filter = "All"
 
+# Date and Time Filters in the sidebar
+selected_date = st.sidebar.date_input("Select Date", value=st.session_state.filter_date)
+selected_time = st.sidebar.time_input("Select Time", value=st.session_state.filter_time)
+
+# Button to clear filters
+if st.sidebar.button("Clear Filters"):
+    st.session_state.filter_date = datetime.now().date()
+    st.session_state.filter_time = datetime.now().time()
+    st.session_state.status_filter = "All"
+
+# Zone selection dropdown for editing names
+try:
+    user_name_df = pd.read_excel("USER NAME.xlsx")  # Adjust path as needed
+    zones = user_name_df['Zone'].unique() if 'Zone' in user_name_df.columns else []
+    selected_zone = st.sidebar.selectbox("Select Zone to Edit", options=zones, index=0)
+
+    # Display the current name for the selected zone and allow the user to edit it
+    zone_name = user_name_df[user_name_df['Zone'] == selected_zone]['Name'].values
+    if zone_name:
+        zone_name = zone_name[0]
+    else:
+        zone_name = ""
+
+    new_name = st.sidebar.text_input(f"Edit Name for Zone '{selected_zone}'", value=zone_name)
+
+    if st.sidebar.button("Save Name Change"):
+        if selected_zone and new_name:
+            user_name_df.loc[user_name_df['Zone'] == selected_zone, 'Name'] = new_name
+            user_name_df.to_excel("USER NAME.xlsx", index=False)  # Save back to the Excel file
+            st.sidebar.success(f"Name for Zone '{selected_zone}' updated successfully.")
+        else:
+            st.sidebar.error("Please ensure both Zone and Name are selected.")
+except FileNotFoundError:
+    st.sidebar.error("USER NAME file not found. Ensure it exists in the repository.")
+
+# Main content
 if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
-
-    # Filter inputs (date and time)
-    selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
-    selected_time = st.time_input("Select Time", value=st.session_state.filter_time)
-
-    # Button to clear filters
-    if st.button("Clear Filters"):
-        st.session_state.filter_date = datetime.now().date()
-        st.session_state.filter_time = datetime.now().time()
-        st.session_state.status_filter = "All"
 
     # Update session state only when the user changes time or date
     if selected_date != st.session_state.filter_date:
@@ -140,28 +161,7 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-    # Zone selection dropdown for editing names
-    zones = user_name_df['Zone'].unique() if 'Zone' in user_name_df.columns else []
-    selected_zone = st.selectbox("Select Zone to Edit", options=zones, index=0)
-
-    # Display the current name for the selected zone and allow the user to edit it
-    zone_name = user_name_df[user_name_df['Zone'] == selected_zone]['Name'].values
-    if zone_name:
-        zone_name = zone_name[0]
-    else:
-        zone_name = ""
-
-    new_name = st.text_input(f"Edit Name for Zone '{selected_zone}'", value=zone_name)
-
-    if st.button("Save Name Change"):
-        if selected_zone and new_name:
-            user_name_df.loc[user_name_df['Zone'] == selected_zone, 'Name'] = new_name
-            user_name_df.to_excel("USER NAME.xlsx", index=False)  # Save back to the Excel file
-            st.success(f"Name for Zone '{selected_zone}' updated successfully.")
-        else:
-            st.error("Please ensure both Zone and Name are selected.")
-
-    # Display the tables for mismatches and matched sites
+    # Display mismatches
     if not filtered_mismatches_df.empty:
         st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
         display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
