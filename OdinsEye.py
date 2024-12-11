@@ -80,14 +80,23 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('Odin-s-Eye')
 
+# File Upload for User Name
+user_name_file = st.file_uploader("Upload the User Name File", type=["xlsx"])
+
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
 
+# Time Filter in Left Panel
+with st.sidebar:
+    selected_date = st.date_input("Select Date", value=datetime.now().date())
+    selected_time = st.time_input("Select Time", value=datetime.now().time())
+    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
+
 if "filter_time" not in st.session_state:
-    st.session_state.filter_time = datetime.now().time()
+    st.session_state.filter_time = selected_time
 if "filter_date" not in st.session_state:
-    st.session_state.filter_date = datetime.now().date()
+    st.session_state.filter_date = selected_date
 if "status_filter" not in st.session_state:
     st.session_state.status_filter = "All"
 
@@ -98,24 +107,8 @@ if site_access_file and rms_file and current_alarms_file:
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
-    # Filter inputs (date and time)
-    selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
-    selected_time = st.time_input("Select Time", value=st.session_state.filter_time)
-
-    # Button to clear filters
-    if st.button("Clear Filters"):
-        st.session_state.filter_date = datetime.now().date()
-        st.session_state.filter_time = datetime.now().time()
-        st.session_state.status_filter = "All"
-
-    # Update session state only when the user changes time or date
-    if selected_date != st.session_state.filter_date:
-        st.session_state.filter_date = selected_date
-    if selected_time != st.session_state.filter_time:
-        st.session_state.filter_time = selected_time
-
     # Combine selected date and time into a datetime object
-    filter_datetime = datetime.combine(st.session_state.filter_date, st.session_state.filter_time)
+    filter_datetime = datetime.combine(selected_date, selected_time)
 
     # Process mismatches
     mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
@@ -132,14 +125,7 @@ if site_access_file and rms_file and current_alarms_file:
     # Apply filters to matched data
     filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
 
-    # Add the status filter dropdown right before the matched sites table
-    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
-
-    # Update session state for status filter
-    if status_filter != st.session_state.status_filter:
-        st.session_state.status_filter = status_filter
-
-    # Move the "Send Telegram Notification" button to the top
+    # Button to send Telegram notification
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
@@ -174,4 +160,3 @@ if site_access_file and rms_file and current_alarms_file:
 
 else:
     st.write("Please upload all required files.")
- 
