@@ -80,13 +80,30 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('Odin-s-Eye')
 
-# Add a sidebar to display the USER NAME file
-st.sidebar.title("File Information")
+# Add a sidebar to allow editing of USER NAME file
+st.sidebar.title("Edit USER NAME File")
 
+# Load USER NAME file
 try:
     user_name_df = pd.read_excel("USER NAME.xlsx")  # Adjust path as needed
-    st.sidebar.write("**USER NAME File Content:**")
-    st.sidebar.table(user_name_df)
+    zones = user_name_df['Zone'].unique()
+
+    # Option to hide file information
+    hide_file_info = st.sidebar.checkbox("Hide File Information", value=True)
+    if hide_file_info:
+        st.sidebar.write("**Edit Zone Names**")
+
+    # Editable fields for Zone and Name
+    for zone in zones:
+        zone_name = user_name_df[user_name_df['Zone'] == zone].iloc[0]['Name']
+        new_name = st.sidebar.text_input(f"Name for Zone '{zone}':", value=zone_name)
+        
+        # Save changes when user updates a name
+        if st.sidebar.button(f"Save changes for {zone}"):
+            user_name_df.loc[user_name_df['Zone'] == zone, 'Name'] = new_name
+            user_name_df.to_excel("USER NAME.xlsx", index=False)  # Save the updated DataFrame to the Excel file
+            st.sidebar.success(f"Updated name for Zone '{zone}' to {new_name}.")
+
 except FileNotFoundError:
     st.sidebar.error("USER NAME file not found. Ensure it exists in the repository.")
 
