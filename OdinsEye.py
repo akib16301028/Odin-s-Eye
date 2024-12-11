@@ -74,8 +74,24 @@ def send_telegram_notification(message, bot_token, chat_id):
         "text": message,
         "parse_mode": "Markdown"  # Use Markdown for plain text
     }
-    response = requests.post(url, json=payload)
-    return response.status_code == 200
+
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()  # This will raise an exception for HTTP error responses (4xx, 5xx)
+        
+        # Check if the message was successfully sent
+        if response.status_code == 200:
+            return True, ""
+        else:
+            # If not, log the error message from Telegram API response
+            error_message = response.json().get("description", "Unknown error")
+            return False, f"Telegram API error: {error_message}"
+    except requests.exceptions.RequestException as e:
+        # Log connection or network-related issues
+        return False, f"Request exception: {str(e)}"
+    except Exception as e:
+        # Log any other unexpected exceptions
+        return False, f"Unexpected error: {str(e)}"
 
 # Streamlit app
 st.title('Odin-s-Eye')
@@ -173,7 +189,6 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Send Telegram Notification Button
     debug_info = []
-
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
@@ -202,22 +217,20 @@ if site_access_file and rms_file and current_alarms_file:
                     message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
                 message += "\n"
 
-            # Send notification
-            success = send_telegram_notification(message + additional_message, bot_token, chat_id)
+            # Send notification and capture failure reason
+            success, error_message = send_telegram_notification(message + additional_message, bot_token, chat_id)
             
-            # Track failures
             if success:
                 debug_info.append(f"Notification sent successfully for zone: {zone}")
             else:
-                debug_info.append(f"Failed to send notification for zone: {zone}")
-        
-        # Display debug information in the Streamlit app
+                debug_info.append(f"Failed to send notification for zone: {zone}. Error: {error_message}")
+
+        # Display debug information with the specific failure reason
         if debug_info:
             st.write("### Debug Information:")
             for info in debug_info:
                 st.write(info)
 
-        # Display message after attempting to send all notifications
         if any("Failed" in info for info in debug_info):
             st.error("Some notifications failed to send. Check the debug info for details.")
         else:
