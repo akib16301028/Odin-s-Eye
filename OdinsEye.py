@@ -171,6 +171,9 @@ if site_access_file and rms_file and current_alarms_file:
 
     display_matched_sites(matched_df)
 
+    # Debugging section for failed notifications
+    debug_info = []
+
     # Send Telegram Notification Button
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
@@ -179,7 +182,7 @@ if site_access_file and rms_file and current_alarms_file:
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            
+
             # Match zone with USER NAME database
             matched_user_name_row = user_name_df[user_name_df['Zone'] == zone]
             if not matched_user_name_row.empty:
@@ -191,7 +194,7 @@ if site_access_file and rms_file and current_alarms_file:
             # Generate message
             message = f"Door Open Alert\n\n{zone}\n\n"
             site_aliases = zone_df['Site Alias'].unique()
-            
+
             for site_alias in site_aliases:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
                 message += f"#{site_alias}\n"
@@ -202,9 +205,24 @@ if site_access_file and rms_file and current_alarms_file:
 
             # Send notification
             success = send_telegram_notification(message + additional_message, bot_token, chat_id)
+
+            # Track failures
             if success:
-                st.success("Notification sent successfully.")
+                debug_info.append(f"Notification sent successfully for zone: {zone}")
             else:
-                st.error("Failed to send notification.")
+                debug_info.append(f"Failed to send notification for zone: {zone}")
+
+        # Display debug information in the Streamlit app
+        if debug_info:
+            st.write("### Debug Information:")
+            for info in debug_info:
+                st.write(info)
+
+        # Display message after attempting to send all notifications
+        if any("Failed" in info for info in debug_info):
+            st.error("Some notifications failed to send. Check the debug info for details.")
+        else:
+            st.success("All notifications sent successfully.")
 else:
     st.write("Please upload all required files.")
+
