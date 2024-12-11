@@ -161,6 +161,30 @@ if site_access_file and rms_file and current_alarms_file:
             else:
                 additional_message = ""
 
+def display_grouped_data(df, title):
+    # Group data by Cluster and Zone (or any relevant columns) and display in Streamlit
+    st.subheader(title)
+    
+    # Example: Group by Cluster and Zone, assuming 'Cluster' and 'Zone' columns exist
+    grouped = df.groupby(['Cluster', 'Zone']).size().reset_index(name='Count')
+
+    for _, group in grouped.iterrows():
+        cluster = group['Cluster']
+        zone = group['Zone']
+        count = group['Count']
+        st.write(f"Cluster: {cluster}, Zone: {zone}, Mismatch Count: {count}")
+
+    # Optionally display the entire DataFrame for debugging
+    st.dataframe(df)
+
+def display_matched_sites(df):
+    # Display matched sites
+    st.subheader("Matched Sites")
+    if not df.empty:
+        st.write(df)
+    else:
+        st.write("No matched sites found.")
+
             # Generate message
             message = f"Door Open Alert\n\n{zone}\n\n"
             site_aliases = zone_df['Site Alias'].unique()
