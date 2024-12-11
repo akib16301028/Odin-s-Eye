@@ -80,55 +80,6 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('Odin-s-Eye')
 
-# Send Telegram Notification Button (now at the top)
-if st.button("Send Telegram Notification"):
-    # Logic to prepare and send the message
-    if site_access_file and rms_file and current_alarms_file:
-        site_access_df = pd.read_excel(site_access_file)
-        rms_df = pd.read_excel(rms_file, header=2)
-        current_alarms_df = pd.read_excel(current_alarms_file, header=2)
-
-        merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
-        mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
-        filtered_mismatches_df = mismatches_df[mismatches_df['Start Time'] > filter_datetime]
-        
-        # Notify logic here
-        zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
-
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            
-            # Match zone with USER NAME database
-            matched_user_name_row = user_name_df[user_name_df['Zone'] == zone]
-            if not matched_user_name_row.empty:
-                user_name = matched_user_name_row.iloc[0]['Name']  # Assuming 'Name' column contains user names
-                additional_message = f"@{user_name}, no site access request was made for this following door open alarms. Please take care and share update regarding these unauthorized access."
-            else:
-                additional_message = ""
-
-            # Generate message
-            message = f"Door Open Alert\n\n{zone}\n\n"
-            site_aliases = zone_df['Site Alias'].unique()
-            
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
-
-            # Send notification
-            success = send_telegram_notification(message + additional_message, bot_token, chat_id)
-            if success:
-                st.success("Notification sent successfully.")
-            else:
-                st.error("Failed to send notification.")
-    else:
-        st.write("Please upload all required files.")
-
 # Add the sidebar for user inputs
 st.sidebar.title("Settings")
 
@@ -219,5 +170,41 @@ if site_access_file and rms_file and current_alarms_file:
         display_grouped_data(mismatches_df, "All Mismatched Sites")
 
     display_matched_sites(matched_df)
+
+    # Send Telegram Notification Button
+    if st.button("Send Telegram Notification"):
+        zones = filtered_mismatches_df['Zone'].unique()
+        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+        chat_id = "-4537588687"
+
+        for zone in zones:
+            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+            
+            # Match zone with USER NAME database
+            matched_user_name_row = user_name_df[user_name_df['Zone'] == zone]
+            if not matched_user_name_row.empty:
+                user_name = matched_user_name_row.iloc[0]['Name']  # Assuming 'Name' column contains user names
+                additional_message = f"@{user_name}, no site access request was made for this following door open alarms. Please take care and share update regarding these unauthorized access."
+            else:
+                additional_message = ""
+
+            # Generate message
+            message = f"Door Open Alert\n\n{zone}\n\n"
+            site_aliases = zone_df['Site Alias'].unique()
+            
+            for site_alias in site_aliases:
+                site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                message += f"#{site_alias}\n"
+                for _, row in site_df.iterrows():
+                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                message += "\n"
+
+            # Send notification
+            success = send_telegram_notification(message + additional_message, bot_token, chat_id)
+            if success:
+                st.success("Notification sent successfully.")
+            else:
+                st.error("Failed to send notification.")
 else:
     st.write("Please upload all required files.")
