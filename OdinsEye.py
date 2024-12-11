@@ -84,11 +84,14 @@ st.title('Odin-s-Eye')
 st.sidebar.title("File Information")
 
 try:
-    user_name_df = pd.read_csv("USER NAME.csv")  # Adjust path as needed
+    user_name_df = pd.read_excel("USER NAME.xlsx")  # Adjust path as needed
     st.sidebar.write("**USER NAME File Content:**")
     st.sidebar.table(user_name_df)
 except FileNotFoundError:
     st.sidebar.error("USER NAME file not found. Ensure it exists in the repository.")
+except Exception as e:
+    st.sidebar.error(f"Error reading the USER NAME file: {e}")
+
 
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
