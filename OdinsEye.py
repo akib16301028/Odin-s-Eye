@@ -66,16 +66,6 @@ def display_matched_sites(matched_df):
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
-# Function to send Telegram notification
-def send_telegram_notification(message, bot_token, chat_id):
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"  # Use Markdown for plain text
-    }
-    response = requests.post(url, json=payload)
-    return response.status_code == 200
 
 # Streamlit app
 st.title('Odin-s-Eye')
@@ -105,6 +95,16 @@ if st.sidebar.button("Clear Filters"):
     st.session_state.filter_date = datetime.now().date()
     st.session_state.filter_time = datetime.now().time()
     st.session_state.status_filter = "All"
+# Function to send Telegram notification
+def send_telegram_notification(message, bot_token, chat_id):
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"  # Use Markdown for plain text
+    }
+    response = requests.post(url, json=payload)
+    return response.status_code == 200
 
 # Zone selection dropdown for editing names
 try:
