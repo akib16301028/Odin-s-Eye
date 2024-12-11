@@ -80,30 +80,13 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('Odin-s-Eye')
 
-# Add a sidebar to allow editing of USER NAME file
-st.sidebar.title("Edit USER NAME File")
+# Add a sidebar to display the USER NAME file
+st.sidebar.title("File Information")
 
-# Load USER NAME file
 try:
     user_name_df = pd.read_excel("USER NAME.xlsx")  # Adjust path as needed
-    zones = user_name_df['Zone'].unique()
-
-    # Option to hide file information
-    hide_file_info = st.sidebar.checkbox("Hide File Information", value=True)
-    if hide_file_info:
-        st.sidebar.write("**Edit Zone Names**")
-
-    # Editable fields for Zone and Name
-    for zone in zones:
-        zone_name = user_name_df[user_name_df['Zone'] == zone].iloc[0]['Name']
-        new_name = st.sidebar.text_input(f"Name for Zone '{zone}':", value=zone_name)
-        
-        # Save changes when user updates a name
-        if st.sidebar.button(f"Save changes for {zone}"):
-            user_name_df.loc[user_name_df['Zone'] == zone, 'Name'] = new_name
-            user_name_df.to_excel("USER NAME.xlsx", index=False)  # Save the updated DataFrame to the Excel file
-            st.sidebar.success(f"Updated name for Zone '{zone}' to {new_name}.")
-
+    st.sidebar.write("**USER NAME File Content:**")
+    st.sidebar.table(user_name_df)
 except FileNotFoundError:
     st.sidebar.error("USER NAME file not found. Ensure it exists in the repository.")
 
@@ -157,44 +140,28 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-    # Display mismatches
-    if st.button("Send Telegram Notification"):
-        zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+    # Zone selection dropdown for editing names
+    zones = user_name_df['Zone'].unique() if 'Zone' in user_name_df.columns else []
+    selected_zone = st.selectbox("Select Zone to Edit", options=zones, index=0)
 
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            
-            # Match zone with USER NAME database
-            matched_user_name_row = user_name_df[user_name_df['Zone'] == zone]
-            if not matched_user_name_row.empty:
-                user_name = matched_user_name_row.iloc[0]['Name']  # Assuming 'Name' column contains user names
-                additional_message = f"@{user_name}, no site access request was made for this following door open alarms. Please take care and share update regarding these unauthorized access."
-            else:
-                additional_message = ""
+    # Display the current name for the selected zone and allow the user to edit it
+    zone_name = user_name_df[user_name_df['Zone'] == selected_zone]['Name'].values
+    if zone_name:
+        zone_name = zone_name[0]
+    else:
+        zone_name = ""
 
-            # Generate message
-            message = f"Door Open Alert\n\n{zone}\n\n"
-            site_aliases = zone_df['Site Alias'].unique()
-            
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
+    new_name = st.text_input(f"Edit Name for Zone '{selected_zone}'", value=zone_name)
 
-            if additional_message:
-                message += f"{additional_message}\n"
+    if st.button("Save Name Change"):
+        if selected_zone and new_name:
+            user_name_df.loc[user_name_df['Zone'] == selected_zone, 'Name'] = new_name
+            user_name_df.to_excel("USER NAME.xlsx", index=False)  # Save back to the Excel file
+            st.success(f"Name for Zone '{selected_zone}' updated successfully.")
+        else:
+            st.error("Please ensure both Zone and Name are selected.")
 
-            # Send Telegram notification
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success(f"Notification for zone '{zone}' sent successfully!")
-            else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
-
+    # Display the tables for mismatches and matched sites
     if not filtered_mismatches_df.empty:
         st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
         display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
