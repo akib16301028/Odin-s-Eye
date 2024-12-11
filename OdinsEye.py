@@ -37,6 +37,35 @@ def find_matched_sites(site_access_df, merged_df):
     matched_df['Status'] = matched_df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
     return matched_df
 
+# Function to display grouped data by Cluster and Zone in a table
+def display_grouped_data(grouped_df, title):
+    st.write(title)
+    clusters = grouped_df['Cluster'].unique()
+
+    for cluster in clusters:
+        st.markdown(f"**{cluster}**")
+        cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
+        zones = cluster_df['Zone'].unique()
+
+        for zone in zones:
+            st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)
+            zone_df = cluster_df[cluster_df['Zone'] == zone]
+            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
+            display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
+            display_df = display_df.fillna('')
+            st.table(display_df)
+        st.markdown("---")
+
+# Function to display matched sites with status
+def display_matched_sites(matched_df):
+    color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
+    def highlight_status(status):
+        return color_map.get(status, '')
+
+    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
+    st.write("Matched Sites with Status:")
+    st.dataframe(styled_df)
+
 # Function to send Telegram notification
 def send_telegram_notification(message, bot_token, chat_id):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -77,30 +106,28 @@ if st.sidebar.button("Clear Filters"):
     st.session_state.filter_time = datetime.now().time()
     st.session_state.status_filter = "All"
 
-# Option to edit USER Name file
+# Zone selection dropdown for editing names
 try:
-    user_name_file = st.sidebar.file_uploader("Upload the USER NAME File", type=["xlsx"])
-    if user_name_file:
-        user_name_df = pd.read_excel(user_name_file)
-        zones = user_name_df['Zone'].unique() if 'Zone' in user_name_df.columns else []
-        selected_zone = st.sidebar.selectbox("Select Zone to Edit", options=zones, index=0)
+    user_name_df = pd.read_excel("USER NAME.xlsx")  # Adjust path as needed
+    zones = user_name_df['Zone'].unique() if 'Zone' in user_name_df.columns else []
+    selected_zone = st.sidebar.selectbox("Select Zone to Edit", options=zones, index=0)
 
-        # Display the current name for the selected zone and allow the user to edit it
-        zone_name = user_name_df[user_name_df['Zone'] == selected_zone]['Name'].values
-        if zone_name:
-            zone_name = zone_name[0]
+    # Display the current name for the selected zone and allow the user to edit it
+    zone_name = user_name_df[user_name_df['Zone'] == selected_zone]['Name'].values
+    if zone_name:
+        zone_name = zone_name[0]
+    else:
+        zone_name = ""
+
+    new_name = st.sidebar.text_input(f"Edit Name for Zone '{selected_zone}'", value=zone_name)
+
+    if st.sidebar.button("Save Name Change"):
+        if selected_zone and new_name:
+            user_name_df.loc[user_name_df['Zone'] == selected_zone, 'Name'] = new_name
+            user_name_df.to_excel("USER NAME.xlsx", index=False)  # Save back to the Excel file
+            st.sidebar.success(f"Name for Zone '{selected_zone}' updated successfully.")
         else:
-            zone_name = ""
-
-        new_name = st.sidebar.text_input(f"Edit Name for Zone '{selected_zone}'", value=zone_name)
-
-        if st.sidebar.button("Save Name Change"):
-            if selected_zone and new_name:
-                user_name_df.loc[user_name_df['Zone'] == selected_zone, 'Name'] = new_name
-                user_name_df.to_excel("USER NAME.xlsx", index=False)  # Save back to the Excel file
-                st.sidebar.success(f"Name for Zone '{selected_zone}' updated successfully.")
-            else:
-                st.sidebar.error("Please ensure both Zone and Name are selected.")
+            st.sidebar.error("Please ensure both Zone and Name are selected.")
 except FileNotFoundError:
     st.sidebar.error("USER NAME file not found. Ensure it exists in the repository.")
 
@@ -160,30 +187,6 @@ if site_access_file and rms_file and current_alarms_file:
                 additional_message = f"@{user_name}, no site access request was made for this following door open alarms. Please take care and share update regarding these unauthorized access."
             else:
                 additional_message = ""
-
-def display_grouped_data(df, title):
-    # Group data by Cluster and Zone (or any relevant columns) and display in Streamlit
-    st.subheader(title)
-    
-    # Example: Group by Cluster and Zone, assuming 'Cluster' and 'Zone' columns exist
-    grouped = df.groupby(['Cluster', 'Zone']).size().reset_index(name='Count')
-
-    for _, group in grouped.iterrows():
-        cluster = group['Cluster']
-        zone = group['Zone']
-        count = group['Count']
-        st.write(f"Cluster: {cluster}, Zone: {zone}, Mismatch Count: {count}")
-
-    # Optionally display the entire DataFrame for debugging
-    st.dataframe(df)
-
-def display_matched_sites(df):
-    # Display matched sites
-    st.subheader("Matched Sites")
-    if not df.empty:
-        st.write(df)
-    else:
-        st.write("No matched sites found.")
 
             # Generate message
             message = f"Door Open Alert\n\n{zone}\n\n"
