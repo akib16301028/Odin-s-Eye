@@ -37,6 +37,12 @@ def find_matched_sites(site_access_df, merged_df):
     matched_df['Status'] = matched_df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
     return matched_df
 
+# Function to load user names from an Excel file stored in the Git repository
+def load_user_names(file_path):
+    user_names_df = pd.read_excel(file_path)
+    user_names_dict = user_names_df.set_index('Zone')['UserName'].to_dict()
+    return user_names_dict
+
 # Function to display grouped data by Cluster and Zone in a table
 def display_grouped_data(grouped_df, title):
     st.write(title)
@@ -83,6 +89,7 @@ st.title('Odin-s-Eye')
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
+user_name_file_path = "path/to/your/git/repo/user_names.xlsx"  # Update with the correct path to the file
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -97,6 +104,9 @@ if site_access_file and rms_file and current_alarms_file:
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
+
+    # Load user names
+    user_names_dict = load_user_names(user_name_file_path)
 
     # Filter inputs (date and time)
     selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
@@ -143,17 +153,18 @@ if site_access_file and rms_file and current_alarms_file:
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+        chat_id = "-1001509039244"
 
         notification_messages = []
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            # Assuming `ConcernName` is a column in the DataFrame for the zone's concern name
             zone_concern_name = zone_df['ConcernName'].iloc[0] if 'ConcernName' in zone_df.columns and not zone_df['ConcernName'].isnull().all() else "Unknown Concern"
+            user_name = user_names_dict.get(zone, "Unknown User")
 
             message = f"*Door Open Notification*\n\n"
             message += f"*Zone: {zone}*\n"
-            message += f"Concern Name: {zone_concern_name}\n\n"
+            message += f"Concern Name: {zone_concern_name}\n"
+            message += f"User: {user_name}\n\n"
 
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
