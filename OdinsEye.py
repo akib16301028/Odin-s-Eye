@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
-import requests  # For sending Telegram notifications 
+import requests  # For sending Telegram notifications
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -36,12 +36,6 @@ def find_matched_sites(site_access_df, merged_df):
     matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
     matched_df['Status'] = matched_df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
     return matched_df
-
-# Function to load user names from an Excel file stored in the Git repository
-def load_user_names(file_path):
-    user_names_df = pd.read_excel(file_path)
-    user_names_dict = user_names_df.set_index('Zone')['UserName'].to_dict()
-    return user_names_dict
 
 # Function to display grouped data by Cluster and Zone in a table
 def display_grouped_data(grouped_df, title):
@@ -89,7 +83,6 @@ st.title('Odin-s-Eye')
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
-user_name_file_path = "path/to/your/git/repo/user_names.xlsx"  # Update with the correct path to the file
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -104,9 +97,6 @@ if site_access_file and rms_file and current_alarms_file:
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
-
-    # Load user names
-    user_names_dict = load_user_names(user_name_file_path)
 
     # Filter inputs (date and time)
     selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
@@ -155,41 +145,21 @@ if site_access_file and rms_file and current_alarms_file:
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
         chat_id = "-1001509039244"
 
-        notification_messages = []
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            zone_concern_name = zone_df['ConcernName'].iloc[0] if 'ConcernName' in zone_df.columns and not zone_df['ConcernName'].isnull().all() else "Unknown Concern"
-            user_name = user_names_dict.get(zone, "Unknown User")
-
-            message = f"*Door Open Notification*\n\n"
-            message += f"*Zone: {zone}*\n"
-            message += f"Concern Name: {zone_concern_name}\n"
-            message += f"User: {user_name}\n\n"
-
+            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
                 message += f"#{site_alias}\n"
                 for _, row in site_df.iterrows():
-                    start_time_display = row['Start Time'].strftime('%Y-%m-%d %H:%M:%S') if pd.notnull(row['Start Time']) else 'Unknown'
                     end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"  - Start Time: {start_time_display}\n"
-                    message += f"  - End Time: {end_time_display}\n"
+                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
                 message += "\n"
-
-            notification_messages.append(message)
-
-        # Send notifications for all zones
-        success = True
-        for message in notification_messages:
-            if not send_telegram_notification(message, bot_token, chat_id):
-                success = False
-                st.error(f"Failed to send notification for a zone. Message: {message}")
-
-        if success:
-            st.success("All notifications sent successfully!")
-        else:
-            st.error("Some notifications failed to send.")
+            if send_telegram_notification(message, bot_token, chat_id):
+                st.success(f"Notification for zone '{zone}' sent successfully!")
+            else:
+                st.error(f"Failed to send notification for zone '{zone}'.")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
