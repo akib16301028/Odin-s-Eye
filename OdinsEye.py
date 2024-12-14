@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
-import requests  # For sending Telegram notifications
+import requests  # For sending Telegram notifications 
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
