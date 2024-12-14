@@ -139,46 +139,46 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
- if st.button("Send Telegram Notification"):
-    zones = filtered_mismatches_df['Zone'].unique()
-    bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"  # Your Telegram Bot Token
-    chat_id = "-1001509039244"  # Your Telegram Chat ID
+    # Move the "Send Telegram Notification" button to the top
+    if st.button("Send Telegram Notification"):
+        zones = filtered_mismatches_df['Zone'].unique()
+        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+        chat_id = "-4537588687"
 
-    notification_messages = []
-    for zone in zones:
-        zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-        # Assuming `ConcernName` is a column in the DataFrame for the zone's concern name
-        zone_concern_name = zone_df['ConcernName'].iloc[0] if 'ConcernName' in zone_df.columns and not zone_df['ConcernName'].isnull().all() else "Unknown Concern"
-        
-        message = f"*Door Open Notification*\n\n"  # Header
-        message += f"*Zone: {zone}*\n"
-        message += f"Concern Name: {zone_concern_name}\n\n"  # Add the concern name for the zone
+        notification_messages = []
+        for zone in zones:
+            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+            # Assuming `ConcernName` is a column in the DataFrame for the zone's concern name
+            zone_concern_name = zone_df['ConcernName'].iloc[0] if 'ConcernName' in zone_df.columns and not zone_df['ConcernName'].isnull().all() else "Unknown Concern"
 
-        site_aliases = zone_df['Site Alias'].unique()
-        for site_alias in site_aliases:
-            site_df = zone_df[zone_df['Site Alias'] == site_alias]
-            message += f"#{site_alias}\n"
-            for _, row in site_df.iterrows():
-                start_time_display = row['Start Time'].strftime('%Y-%m-%d %H:%M:%S') if pd.notnull(row['Start Time']) else 'Unknown'
-                end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                message += f"  - Start Time: {start_time_display}\n"
-                message += f"  - End Time: {end_time_display}\n"
-            message += "\n"
+            message = f"*Door Open Notification*\n\n"
+            message += f"*Zone: {zone}*\n"
+            message += f"Concern Name: {zone_concern_name}\n\n"
 
-        notification_messages.append(message)
+            site_aliases = zone_df['Site Alias'].unique()
+            for site_alias in site_aliases:
+                site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                message += f"#{site_alias}\n"
+                for _, row in site_df.iterrows():
+                    start_time_display = row['Start Time'].strftime('%Y-%m-%d %H:%M:%S') if pd.notnull(row['Start Time']) else 'Unknown'
+                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                    message += f"  - Start Time: {start_time_display}\n"
+                    message += f"  - End Time: {end_time_display}\n"
+                message += "\n"
 
-    # Send notifications for all zones
-    success = True
-    for message in notification_messages:
-        if not send_telegram_notification(message, bot_token, chat_id):
-            success = False
-            st.error(f"Failed to send notification for a zone. Message: {message}")
+            notification_messages.append(message)
 
-    if success:
-        st.success("All notifications sent successfully!")
-    else:
-        st.error("Some notifications failed to send.")
+        # Send notifications for all zones
+        success = True
+        for message in notification_messages:
+            if not send_telegram_notification(message, bot_token, chat_id):
+                success = False
+                st.error(f"Failed to send notification for a zone. Message: {message}")
 
+        if success:
+            st.success("All notifications sent successfully!")
+        else:
+            st.error("Some notifications failed to send.")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
