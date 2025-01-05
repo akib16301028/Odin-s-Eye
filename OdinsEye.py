@@ -85,6 +85,12 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.set_page_config(layout="wide")
 
+# File upload inputs
+site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
+rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
+current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
+user_name_file = st.file_uploader("Upload the User Name Excel", type=["xlsx"])
+
 # Sidebar Panel for Template Creation
 st.sidebar.title("Create Template")
 zone_options = []
@@ -117,11 +123,6 @@ if st.sidebar.button("Create Message Template"):
 
 # Main Content
 st.title('Odin-s-Eye')
-
-site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
-rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
-current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
-user_name_file = st.file_uploader("Upload the User Name Excel", type=["xlsx"])
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -221,4 +222,3 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
 
 else:
     st.write("Please upload all required files.")
- 
