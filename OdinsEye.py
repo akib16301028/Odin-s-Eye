@@ -66,16 +66,16 @@ def display_matched_sites(matched_df):
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
-# Function to send Telegram notification
+# Function to send Telegram notification (as plain text)
 def send_telegram_notification(message, bot_token, chat_id):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "parse_mode": "Markdown"  # Use Markdown for plain text
+        "parse_mode": None  # Send message as plain text, bypassing Markdown parsing
     }
     response = requests.post(url, json=payload)
-    return response.status_code == 200, response.text
+    return response.status_code == 200
 
 # Streamlit app
 st.title('Odin-s-Eye')
@@ -152,12 +152,7 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            
-            if zone_df.empty:
-                st.warning(f"No mismatches for zone '{zone}'. Skipping notification.")
-                continue
-            
-            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
+            message = f"Door Open Notification\n\n{zone}\n\n"  # Normal text, no Markdown
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
@@ -168,14 +163,12 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
                 message += "\n"
             if zone in zone_to_user_map:
                 message += f"@{zone_to_user_map[zone]}, please take care.\n"
-            else:
-                st.warning(f"No user mapping found for zone '{zone}'. Notification will still be sent.")
             
-            success, response_text = send_telegram_notification(message, bot_token, chat_id)
-            if success:
+            # Send the message as plain text without Markdown parsing
+            if send_telegram_notification(message, bot_token, chat_id):
                 st.success(f"Notification for zone '{zone}' sent successfully!")
             else:
-                st.error(f"Failed to send notification for zone '{zone}'. Response: {response_text}")
+                st.error(f"Failed to send notification for zone '{zone}'.")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
