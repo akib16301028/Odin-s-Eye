@@ -56,45 +56,26 @@ def display_grouped_data(grouped_df, title):
             st.table(display_df)
         st.markdown("---")
 
-# Function to generate HTML table for Telegram
-def generate_telegram_table(df):
-    # Start the HTML table
-    html_table = "<b>Door Open Notification</b><br><br>"
+# Function to display matched sites with status
+def display_matched_sites(matched_df):
+    color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
+    def highlight_status(status):
+        return color_map.get(status, '')
 
-    # Add table headers
-    html_table += "<table border='1' cellpadding='5' style='border-collapse: collapse; width: 100%;'>"
-    html_table += "<tr><th>Site Alias</th><th>Start Time</th><th>End Time</th><th>Status</th></tr>"
+    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
+    st.write("Matched Sites with Status:")
+    st.dataframe(styled_df)
 
-    # Ensure 'Status' column exists and handle it if necessary
-    if 'Status' not in df.columns:
-        # Add status calculation logic if needed
-        df['Status'] = df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
-
-    # Add each row of data to the table
-    for _, row in df.iterrows():
-        end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-        html_table += f"<tr><td>{row['Site Alias']}</td><td>{row['Start Time']}</td><td>{end_time_display}</td><td>{row['Status']}</td></tr>"
-    
-    # Close the table
-    html_table += "</table>"
-    return html_table
-
-
-# Function to send Telegram notification (with HTML format)
+# Function to send Telegram notification
 def send_telegram_notification(message, bot_token, chat_id):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "parse_mode": "HTML"  # Use HTML to render the table
+        "parse_mode": "Markdown"  # Use Markdown for plain text
     }
-    try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()  # This will raise an exception for non-200 status codes
-        return response.status_code == 200
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error sending message: {e}")
-        return False
+    response = requests.post(url, json=payload)
+    return response.status_code == 200
 
 # Streamlit app
 st.title('Odin-s-Eye')
@@ -102,7 +83,6 @@ st.title('Odin-s-Eye')
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
-user_name_file = st.file_uploader("Upload the User Name Excel", type=["xlsx"])
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -111,14 +91,10 @@ if "filter_date" not in st.session_state:
 if "status_filter" not in st.session_state:
     st.session_state.status_filter = "All"
 
-if site_access_file and rms_file and current_alarms_file and user_name_file:
+if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
-    user_name_df = pd.read_excel(user_name_file)
-
-    # Create a mapping of Zone to User Name
-    zone_to_user_map = dict(zip(user_name_df['Zone'], user_name_df['Name']))
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
@@ -167,22 +143,19 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+        chat_id = "-1001509039244"
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"<b>Door Open Notification</b><br><br>{zone}<br><br>"  # Normal text, no Markdown
+            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"<b>#{site_alias}</b><br>"
-                message += generate_telegram_table(site_df)  # Add HTML table for each site
-                message += "<br>"
-
-            if zone in zone_to_user_map:
-                message += f"@{zone_to_user_map[zone]}, please take care.<br>"
-
-            # Send the message as HTML
+                message += f"#{site_alias}\n"
+                for _, row in site_df.iterrows():
+                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                message += "\n"
             if send_telegram_notification(message, bot_token, chat_id):
                 st.success(f"Notification for zone '{zone}' sent successfully!")
             else:
@@ -197,6 +170,7 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
         display_grouped_data(mismatches_df, "All Mismatched Sites")
 
     # Display matched sites
-    display_grouped_data(filtered_matched_df, "Matched Sites")
+    display_matched_sites(filtered_matched_df)
+
 else:
     st.write("Please upload all required files.")
