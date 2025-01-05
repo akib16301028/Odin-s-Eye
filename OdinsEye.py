@@ -83,40 +83,12 @@ def send_telegram_notification(message, bot_token, chat_id):
         return False
 
 # Streamlit app
-st.set_page_config(layout="wide")
-
-# Sidebar Panel for Template Creation
-st.sidebar.title("Create Template")
-zone_options = []
-if site_access_file:
-    site_access_df = pd.read_excel(site_access_file)
-    zone_options = site_access_df['Zone'].unique().tolist()
-
-selected_zone = st.sidebar.selectbox("Select Zone", options=zone_options)
-
-if st.sidebar.button("Create Message Template"):
-    if selected_zone:
-        # Create the template message based on the selected zone
-        filtered_mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
-        zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == selected_zone]
-        
-        message = f"Door Open Notification\n\n{selected_zone}\n\n"  # Normal text, no Markdown
-        site_aliases = zone_df['Site Alias'].unique()
-        for site_alias in site_aliases:
-            site_df = zone_df[zone_df['Site Alias'] == site_alias]
-            message += f"#{site_alias}\n"
-            for _, row in site_df.iterrows():
-                end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-            message += "\n"
-        message += f"@{selected_zone}, please take care.\n"
-
-        # Display the message template
-        st.sidebar.markdown("**Generated Message Template:**")
-        st.sidebar.text_area("Copy the generated message:", value=message, height=200)
-
-# Main Content
 st.title('Odin-s-Eye')
+
+# Left panel for options
+with st.sidebar:
+    st.header("Options")
+    option = st.selectbox("Choose an action", ["Monitor Alarms", "Create Template"])
 
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
@@ -182,39 +154,68 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-    # Move the "Send Telegram Notification" button to the top
-    if st.button("Send Telegram Notification"):
-        zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+    # Handle "Send Telegram Notification"
+    if option == "Monitor Alarms":
+        # Move the "Send Telegram Notification" button to the top
+        if st.button("Send Telegram Notification"):
+            zones = filtered_mismatches_df['Zone'].unique()
+            bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+            chat_id = "-4537588687"
 
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"Door Open Notification\n\n{zone}\n\n"  # Normal text, no Markdown
-            site_aliases = zone_df['Site Alias'].unique()
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
-            if zone in zone_to_user_map:
-                message += f"@{zone_to_user_map[zone]}, please take care.\n"
-            
-            # Send the message as plain text without Markdown parsing
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success(f"Notification for zone '{zone}' sent successfully!")
-            else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
+            for zone in zones:
+                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+                message = f"Door Open Notification\n\n{zone}\n\n"  # Normal text, no Markdown
+                site_aliases = zone_df['Site Alias'].unique()
+                for site_alias in site_aliases:
+                    site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                    message += f"#{site_alias}\n"
+                    for _, row in site_df.iterrows():
+                        end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                        message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                    message += "\n"
+                if zone in zone_to_user_map:
+                    message += f"@{zone_to_user_map[zone]}, please take care.\n"
+                
+                # Send the message as plain text without Markdown parsing
+                if send_telegram_notification(message, bot_token, chat_id):
+                    st.success(f"Notification for zone '{zone}' sent successfully!")
+                else:
+                    st.error(f"Failed to send notification for zone '{zone}'.")
 
-    # Display mismatches
-    if not filtered_mismatches_df.empty:
-        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
-    else:
-        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-        display_grouped_data(mismatches_df, "All Mismatched Sites")
+        # Display mismatches
+        if not filtered_mismatches_df.empty:
+            st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
+            display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
+        else:
+            st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
+            display_grouped_data(mismatches_df, "All Mismatched Sites")
 
-    # Display matched sites
-    display_matched_sites(filtered_matched_df)
+        # Display matched sites
+        display_matched_sites(filtered_matched_df)
+
+    # Handle "Create Template" option
+    elif option == "Create Template":
+        # Create the zone selector for template generation
+        selected_zone = st.selectbox("Select Zone to Create Template", options=list(zone_to_user_map.keys()))
+
+        if selected_zone:
+            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == selected_zone]
+            if not zone_df.empty:
+                # Build the template message for the selected zone
+                template_message = f"Door Open Notification\n\n{selected_zone}\n\n"
+                site_aliases = zone_df['Site Alias'].unique()
+                for site_alias in site_aliases:
+                    site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                    template_message += f"#{site_alias}\n"
+                    for _, row in site_df.iterrows():
+                        end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                        template_message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                    template_message += "\n"
+                if selected_zone in zone_to_user_map:
+                    template_message += f"@{zone_to_user_map[selected_zone]}, please take care.\n"
+                
+                # Show the generated template message
+                st.text_area("Message Template", value=template_message, height=300)
+
+else:
+    st.write("Please upload all required files.")
