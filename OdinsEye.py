@@ -74,8 +74,13 @@ def send_telegram_notification(message, bot_token, chat_id):
         "text": message,
         "parse_mode": None  # Send message as plain text, bypassing Markdown parsing
     }
-    response = requests.post(url, json=payload)
-    return response.status_code == 200
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()  # This will raise an exception for non-200 status codes
+        return response.status_code == 200
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error sending message: {e}")
+        return False
 
 # Streamlit app
 st.title('Odin-s-Eye')
