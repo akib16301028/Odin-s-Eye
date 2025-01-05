@@ -66,13 +66,13 @@ def display_matched_sites(matched_df):
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
-# Function to send Telegram notification (as plain text)
+# Function to send Telegram notification with HTML parse mode
 def send_telegram_notification(message, bot_token, chat_id):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "parse_mode": None  # Send message as plain text, bypassing Markdown parsing
+        "parse_mode": "HTML"  # Set parse_mode to HTML
     }
     try:
         response = requests.post(url, json=payload)
@@ -157,19 +157,19 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"Door Open Notification\n\n{zone}\n\n"  # Normal text, no Markdown
+            message = f"<b>Door Open Notification</b><br><br>{zone}<br><br>"  # Bold text for the title
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
+                message += f"<b>#{site_alias}</b><br>"  # Bold the site alias
                 for _, row in site_df.iterrows():
                     end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
+                    message += f"<i>Start Time:</i> {row['Start Time']} <i>End Time:</i> {end_time_display}<br>"  # Italic for start and end times
+                message += "<br>"
             if zone in zone_to_user_map:
-                message += f"@{zone_to_user_map[zone]}, please take care.\n"
+                message += f"<b>@{zone_to_user_map[zone]}</b>, please take care.<br>"
             
-            # Send the message as plain text without Markdown parsing
+            # Send the message with HTML parse mode
             if send_telegram_notification(message, bot_token, chat_id):
                 st.success(f"Notification for zone '{zone}' sent successfully!")
             else:
