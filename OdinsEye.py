@@ -115,7 +115,7 @@ if st.sidebar.button("Create Message Template"):
         st.sidebar.markdown("**Generated Message Template:**")
         st.sidebar.text_area("Copy the generated message:", value=message, height=200)
 
-# Streamlit app
+# Main Content
 st.title('Odin-s-Eye')
 
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
