@@ -75,7 +75,7 @@ def send_telegram_notification(message, bot_token, chat_id):
         "parse_mode": "Markdown"  # Use Markdown for plain text
     }
     response = requests.post(url, json=payload)
-    return response.status_code == 200
+    return response.status_code == 200, response.text
 
 # Streamlit app
 st.title('Odin-s-Eye')
@@ -152,6 +152,11 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+            
+            if zone_df.empty:
+                st.warning(f"No mismatches for zone '{zone}'. Skipping notification.")
+                continue
+            
             message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
@@ -163,10 +168,14 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
                 message += "\n"
             if zone in zone_to_user_map:
                 message += f"@{zone_to_user_map[zone]}, please take care.\n"
-            if send_telegram_notification(message, bot_token, chat_id):
+            else:
+                st.warning(f"No user mapping found for zone '{zone}'. Notification will still be sent.")
+            
+            success, response_text = send_telegram_notification(message, bot_token, chat_id)
+            if success:
                 st.success(f"Notification for zone '{zone}' sent successfully!")
             else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
+                st.error(f"Failed to send notification for zone '{zone}'. Response: {response_text}")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
