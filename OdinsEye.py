@@ -52,7 +52,7 @@ def send_telegram_notification(message, bot_token, chat_id):
 st.title('Odin-s-Eye')
 
 # Automatically fetch the "User Name" file
-user_name_file_path = "/path/to/username_file.xlsx"
+user_name_file_path = "/path/to/USER NAME.xlsx"
 user_name_df = pd.read_excel(user_name_file_path)
 
 # Upload RMS and Current Alarms files
