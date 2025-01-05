@@ -65,6 +65,11 @@ def generate_telegram_table(df):
     html_table += "<table border='1' cellpadding='5' style='border-collapse: collapse; width: 100%;'>"
     html_table += "<tr><th>Site Alias</th><th>Start Time</th><th>End Time</th><th>Status</th></tr>"
 
+    # Ensure 'Status' column exists and handle it if necessary
+    if 'Status' not in df.columns:
+        # Add status calculation logic if needed
+        df['Status'] = df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
+
     # Add each row of data to the table
     for _, row in df.iterrows():
         end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
@@ -73,6 +78,7 @@ def generate_telegram_table(df):
     # Close the table
     html_table += "</table>"
     return html_table
+
 
 # Function to send Telegram notification (with HTML format)
 def send_telegram_notification(message, bot_token, chat_id):
