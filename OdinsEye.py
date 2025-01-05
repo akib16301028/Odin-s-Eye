@@ -79,7 +79,7 @@ def send_telegram_notification(message, bot_token, chat_id):
 
 # Load USER NAME file automatically
 def load_user_name_mapping():
-    file_path = "backend_data/user_name.xlsx"  # Adjust path as per backend setup
+    file_path = "USER NAME.xlsx"  # Adjust path as per backend setup
     user_name_df = pd.read_excel(file_path)
     return dict(zip(user_name_df['Zone'], user_name_df['Name']))
 
