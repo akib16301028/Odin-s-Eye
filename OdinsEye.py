@@ -72,7 +72,7 @@ def send_telegram_notification(message, bot_token, chat_id):
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "parse_mode": "Markdown"  # Use Markdown for plain text
+        "parse_mode": "HTML"  # Use Markdown for plain text
     }
     response = requests.post(url, json=payload)
     return response.status_code == 200
