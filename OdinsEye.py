@@ -34,7 +34,8 @@ def find_matched_sites(site_access_df, merged_df):
     matched_df['EndDate'] = pd.to_datetime(matched_df['EndDate'], errors='coerce')
     matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
     matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
-    matched_df['Status'] = matched_df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
+    matched_df['Status'] = matched_df.apply(
+        lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
     return matched_df
 
 # Function to display grouped data by Cluster and Zone in a table
@@ -62,7 +63,8 @@ def display_matched_sites(matched_df):
     def highlight_status(status):
         return color_map.get(status, '')
 
-    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
+    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(
+        highlight_status, subset=['Status'])
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
@@ -75,6 +77,7 @@ def send_telegram_notification(message, bot_token, chat_id):
         "parse_mode": "Markdown"  # Use Markdown for plain text
     }
     response = requests.post(url, json=payload)
+    st.write(f"Response for message: {message[:50]}... : {response.json()}")  # Debug response
     return response.status_code == 200
 
 # Load USER NAME file
@@ -151,14 +154,21 @@ if site_access_file and rms_file and current_alarms_file:
     with st.sidebar:
         if st.button("Generate Message"):
             zones = filtered_mismatches_df['Zone'].unique()
-            st.session_state.generated_message = ""
+            st.session_state.generated_messages = {}
 
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-                responsible_name = user_df[user_df['Zone'] == zone]['Name'].iloc[0] if not user_df[user_df['Zone'] == zone].empty else "Team"
+                responsible_names = user_df[user_df['Zone'] == zone]['Name'].tolist()
+                if not responsible_names:
+                    responsible_names = ["Team"]  # Default if no names found
+                else:
+                    # Ensure underscores are included in Telegram usernames
+                    responsible_names = [name.replace(" ", "_") for name in responsible_names]
 
-                message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
+                # Generate message for each zone
+                message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold title and zone name
                 site_aliases = zone_df['Site Alias'].unique()
+
                 for site_alias in site_aliases:
                     site_df = zone_df[zone_df['Site Alias'] == site_alias]
                     message += f"#{site_alias}\n"
@@ -166,33 +176,42 @@ if site_access_file and rms_file and current_alarms_file:
                         end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
                         message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
                     message += "\n"
-                message += f"@{responsible_name}, no site access request has been found for these door open alarms. Please take care and share us update.\n\n"
-                st.session_state.generated_message += message
 
-            st.success("Message generated successfully!")
+                # Add responsible names at the end of the message
+                message += f"@{', @'.join(responsible_names)}, no site access request has been found for these door open alarms. Please take care and share us update.\n\n"
+                st.session_state.generated_messages[zone] = message
 
-    if "generated_message" in st.session_state:
-        st.subheader("Generated Message")
-        st.text_area("Message", st.session_state.generated_message, height=300)
+            st.success("Messages generated successfully!")
 
-        if st.button("Send Message"):
-            bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-            chat_id = "-4537588687"
-            if send_telegram_notification(st.session_state.generated_message, bot_token, chat_id):
-                st.success("Message sent successfully!")
-            else:
-                st.error("Failed to send message.")
+        if "generated_messages" in st.session_state:
+            st.subheader("Generated Messages")
+            for zone, message in st.session_state.generated_messages.items():
+                st.markdown(f"**Zone: {zone}**")
+                st.text_area(f"Message for {zone}", message, height=200)
 
-    # Display mismatches
-    if not filtered_mismatches_df.empty:
-        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
-    else:
-        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-        display_grouped_data(mismatches_df, "All Mismatched Sites")
+            if st.button("Send Messages"):
+                bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+                chat_id = "-4537588687"
+                success = True
 
-    # Display matched sites
-    display_matched_sites(filtered_matched_df)
+                for zone, message in st.session_state.generated_messages.items():
+                    if not send_telegram_notification(message, bot_token, chat_id):
+                        st.error(f"Failed to send message for zone: {zone}")
+                        success = False
+
+                if success:
+                    st.success("All messages sent successfully!")
+
+        # Display mismatches
+        if not filtered_mismatches_df.empty:
+            st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
+            display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
+        else:
+            st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
+            display_grouped_data(mismatches_df, "All Mismatched Sites")
+
+        # Display matched sites
+        display_matched_sites(filtered_matched_df)
 
 else:
     st.write("Please upload all required files.")
