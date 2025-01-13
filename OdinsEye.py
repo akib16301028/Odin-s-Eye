@@ -99,7 +99,7 @@ if user_names_df is not None:
     selected_zone = st.sidebar.selectbox("Select a Zone", options=zones, help="Choose a zone to generate a message template.")
 
     if selected_zone:
-        concern_name = user_names_df[user_names_df['Zone'] == selected_zone]['Concern Name'].values
+        concern_name = user_names_df[user_names_df['Zone'] == selected_zone]['Name'].values
         if len(concern_name) > 0:
             concern_name = concern_name[0]
             template_message = (
