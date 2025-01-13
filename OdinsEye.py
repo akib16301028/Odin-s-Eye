@@ -139,8 +139,8 @@ if site_access_file and rms_file and current_alarms_file:
             end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
             message += f"Start Time: {row['Start Time']}, End Time: {end_time_display}\n"
 
-        bot_token = 7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME
-        chat_id = -1001509039244
+        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+        chat_id = "-4537588687"
         if send_telegram_notification(message, bot_token, chat_id):
             st.sidebar.success(f"Notification sent for Zone {selected_zone_for_notification}")
         else:
