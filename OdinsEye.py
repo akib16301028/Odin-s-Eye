@@ -147,58 +147,57 @@ if site_access_file and rms_file and current_alarms_file:
     # Load user data for personalized messages
     user_df = load_user_data()
 
-# Sidebar for message generation
-with st.sidebar:
-    if st.button("Generate Message"):
-        zones = filtered_mismatches_df['Zone'].unique()
-        st.session_state.generated_messages = {}
+    # Sidebar for message generation
+    with st.sidebar:
+        if st.button("Generate Message"):
+            zones = filtered_mismatches_df['Zone'].unique()
+            st.session_state.generated_messages = {}
 
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            responsible_names = user_df[user_df['Zone'] == zone]['Name'].tolist()
-            if not responsible_names:
-                responsible_names = ["Team"]  # Default if no names found
-            else:
-                # Ensure underscores are included in Telegram usernames
-                responsible_names = [name.replace(" ", "_") for name in responsible_names]
+            for zone in zones:
+                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+                responsible_names = user_df[user_df['Zone'] == zone]['Name'].tolist()
+                if not responsible_names:
+                    responsible_names = ["Team"]  # Default if no names found
+                else:
+                    # Ensure underscores are included in Telegram usernames
+                    responsible_names = [name.replace(" ", "_") for name in responsible_names]
 
-            # Generate message for each zone
-            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold title and zone name
-            site_aliases = zone_df['Site Alias'].unique()
+                # Generate message for each zone
+                message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold title and zone name
+                site_aliases = zone_df['Site Alias'].unique()
 
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
+                for site_alias in site_aliases:
+                    site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                    message += f"#{site_alias}\n"
+                    for _, row in site_df.iterrows():
+                        end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                        message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                    message += "\n"
 
-            # Add responsible names at the end of the message
-            message += f"@{', @'.join(responsible_names)}, no site access request has been found for these door open alarms. Please take care and share us update.\n\n"
-            st.session_state.generated_messages[zone] = message
+                # Add responsible names at the end of the message
+                message += f"@{', @'.join(responsible_names)}, no site access request has been found for these door open alarms. Please take care and share us update.\n\n"
+                st.session_state.generated_messages[zone] = message
 
-        st.success("Messages generated successfully!")
+            st.success("Messages generated successfully!")
 
-    if "generated_messages" in st.session_state:
-        st.subheader("Generated Messages")
-        for zone, message in st.session_state.generated_messages.items():
-            st.markdown(f"**Zone: {zone}**")
-            st.text_area(f"Message for {zone}", message, height=200)
-
-        if st.button("Send Messages"):
-            bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-            chat_id = "-4537588687"
-            success = True
-
+        if "generated_messages" in st.session_state:
+            st.subheader("Generated Messages")
             for zone, message in st.session_state.generated_messages.items():
-                if not send_telegram_notification(message, bot_token, chat_id):
-                    st.error(f"Failed to send message for zone: {zone}")
-                    success = False
+                st.markdown(f"**Zone: {zone}**")
+                st.text_area(f"Message for {zone}", message, height=200)
 
-            if success:
-                st.success("All messages sent successfully!")
+            if st.button("Send Messages"):
+                bot_token = "7145427044:AAGb-Ct8zF_XYkutnqqCdNLqf6qw4KgqME"
+                chat_id = "-4537588687"
+                success = True
 
+                for zone, message in st.session_state.generated_messages.items():
+                    if not send_telegram_notification(message, bot_token, chat_id):
+                        st.error(f"Failed to send message for zone: {zone}")
+                        success = False
+
+                if success:
+                    st.success("All messages sent successfully!")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
