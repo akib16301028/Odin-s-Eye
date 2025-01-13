@@ -52,7 +52,7 @@ def display_grouped_data(grouped_df, title):
             zone_df = cluster_df[cluster_df['Zone'] == zone]
             display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
             display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
-            display_df = display_df.fillna('')  # Replace NaN with empty strings
+            display_df = display_df.fillna('')
             st.table(display_df)
         st.markdown("---")
 
@@ -84,6 +84,7 @@ def generate_message_for_zone(zone, zone_df, user_name_df):
     # Check if the zone exists in the USER NAME table and get the corresponding name
     corresponding_zone_name = user_name_df[user_name_df['Zone'] == zone]['Name'].values
     if corresponding_zone_name:
+        # Use the name exactly as it appears in the USER NAME file (with underscores intact)
         message += f"@{corresponding_zone_name[0]}, no site access request found for following Door Open alarms. Please take care and share us update.\n\n"
 
     site_aliases = zone_df['Site Alias'].unique()
@@ -100,6 +101,7 @@ def generate_message_for_zone(zone, zone_df, user_name_df):
 # Streamlit app
 st.title('Odin-s-Eye')
 
+# File upload
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
@@ -168,8 +170,8 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
     # Move the "Send Telegram Notification" button to the top
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+        bot_token = "YOUR_BOT_TOKEN"
+        chat_id = "YOUR_CHAT_ID"
 
         try:
             for zone in zones:
@@ -181,7 +183,7 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
                     st.success(f"Notification for zone '{zone}' sent successfully!")
                 else:
                     st.error(f"Failed to send notification for zone '{zone}'.")
-        
+
         except Exception as e:
             st.error(f"Error processing notification for USER NAME.xlsx file: {e}")
 
