@@ -147,30 +147,41 @@ if site_access_file and rms_file and current_alarms_file:
     # Load user data for personalized messages
     user_df = load_user_data()
 
-    # Move the "Send Telegram Notification" button to the top
-    if st.button("Send Telegram Notification"):
-        zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+    # Sidebar for message generation
+    with st.sidebar:
+        if st.button("Generate Message"):
+            zones = filtered_mismatches_df['Zone'].unique()
+            st.session_state.generated_message = ""
 
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            responsible_name = user_df[user_df['Zone'] == zone]['Name'].iloc[0] if not user_df[user_df['Zone'] == zone].empty else "Team"
+            for zone in zones:
+                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+                responsible_name = user_df[user_df['Zone'] == zone]['Name'].iloc[0] if not user_df[user_df['Zone'] == zone].empty else "Team"
 
-            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
-            site_aliases = zone_df['Site Alias'].unique()
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
-            message += f"@{responsible_name}, no site access request has been found for these door open alarms. Please take care and share us update."
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success(f"Notification for zone '{zone}' sent successfully!")
+                message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
+                site_aliases = zone_df['Site Alias'].unique()
+                for site_alias in site_aliases:
+                    site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                    message += f"#{site_alias}\n"
+                    for _, row in site_df.iterrows():
+                        end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                        message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                    message += "\n"
+                message += f"@{responsible_name}, no site access request has been found for these door open alarms. Please take care and share us update.\n\n"
+                st.session_state.generated_message += message
+
+            st.success("Message generated successfully!")
+
+    if "generated_message" in st.session_state:
+        st.subheader("Generated Message")
+        st.text_area("Message", st.session_state.generated_message, height=300)
+
+        if st.button("Send Message"):
+            bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+            chat_id = "-4537588687"
+            if send_telegram_notification(st.session_state.generated_message, bot_token, chat_id):
+                st.success("Message sent successfully!")
             else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
+                st.error("Failed to send message.")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
