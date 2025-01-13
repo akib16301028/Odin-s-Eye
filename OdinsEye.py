@@ -72,12 +72,12 @@ def generate_message_for_zone(zone, zone_df, user_name_df):
 # Function to display grouped data
 def display_grouped_data(df, title):
     st.write(f"### {title}")
-    grouped_df = df.groupby(['Cluster', 'Zone']).agg(
-        Site_Count=('Site', 'nunique'),
-        Unique_Sites=('Site Alias', 'unique')
-    ).reset_index()
+    zones = df['Zone'].unique()
     
-    st.dataframe(grouped_df)  # Display the grouped data in a table format
+    for zone in zones:
+        zone_df = df[df['Zone'] == zone]
+        st.write(f"### {zone}")
+        st.dataframe(zone_df)  # Display each zone as a separate table
 
 # Streamlit app
 st.title('Odin-s-Eye')
@@ -158,7 +158,7 @@ if site_access_file and rms_file and current_alarms_file:
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+        chat_id = "-1001509039244"
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
@@ -170,7 +170,6 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
-        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
         display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
     else:
         st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
