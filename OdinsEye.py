@@ -80,6 +80,18 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('Odin-s-Eye')
 
+# Sidebar option to show "USER NAME.xlsx" content
+show_usernames = st.sidebar.checkbox("Show User Name")
+
+if show_usernames:
+    try:
+        user_names_df = pd.read_excel("USER NAME.xlsx")
+        st.sidebar.write("User Names:")
+        st.sidebar.dataframe(user_names_df)
+    except FileNotFoundError:
+        st.sidebar.error("USER NAME.xlsx file not found.")
+
+# File upload sections
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
@@ -174,4 +186,3 @@ if site_access_file and rms_file and current_alarms_file:
 
 else:
     st.write("Please upload all required files.")
- 
