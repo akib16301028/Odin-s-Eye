@@ -77,6 +77,28 @@ def send_telegram_notification(message, bot_token, chat_id):
     response = requests.post(url, json=payload)
     return response.status_code == 200
 
+# Function to prepare Telegram message
+def prepare_telegram_message(filtered_df, zone_name, user_name_mapping):
+    zone_df = filtered_df[filtered_df['Zone'] == zone_name]
+    message = f"*Door Open Notification*
+
+*{zone_name}*
+
+"  # Bold "Door Open Notification"
+    site_aliases = zone_df['Site Alias'].unique()
+    for site_alias in site_aliases:
+        site_df = zone_df[zone_df['Site Alias'] == site_alias]
+        message += f"#{site_alias}\n"
+        for _, row in site_df.iterrows():
+            end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+            message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+        message += "\n"
+    # Add user-specific message
+    if zone_name in user_name_mapping:
+        user_name = user_name_mapping[zone_name]
+        message += f"@{user_name}, no site access request has been found for these door open alarms. Please take care and share us update."
+    return message
+
 # Streamlit app
 st.title('Odin-s-Eye')
 
@@ -95,11 +117,12 @@ if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
+    user_name_df = pd.read_excel("USER NAME.xlsx")
+
+    # Map zones to user names
+    user_name_mapping = dict(zip(user_name_df['Zone'], user_name_df['Name']))
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
-
-    # Load the USER NAME.xlsx file
-    user_name_df = pd.read_excel("USER NAME.xlsx")
 
     # Filter inputs (date and time)
     selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
@@ -142,29 +165,22 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
+    # Sidebar for viewing Telegram messages
+    st.sidebar.title("Message Preview")
+    selected_zone = st.sidebar.selectbox("Select Zone", options=filtered_mismatches_df['Zone'].unique())
+    if selected_zone:
+        preview_message = prepare_telegram_message(filtered_mismatches_df, selected_zone, user_name_mapping)
+        st.sidebar.markdown(f"### Message for Zone: {selected_zone}")
+        st.sidebar.text(preview_message)
+
     # Move the "Send Telegram Notification" button to the top
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+        chat_id = "-1001509039244"
 
         for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-
-            # Get the corresponding name for the zone
-            name = user_name_df[user_name_df['Zone'] == zone]['Name'].values[0] if not user_name_df[user_name_df['Zone'] == zone].empty else "Unknown"
-
-            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
-            site_aliases = zone_df['Site Alias'].unique()
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
-            message += f"@{name}, no site access request has been found for these door open alarms. Please take care and share us update."
-
+            message = prepare_telegram_message(filtered_mismatches_df, zone, user_name_mapping)
             if send_telegram_notification(message, bot_token, chat_id):
                 st.success(f"Notification for zone '{zone}' sent successfully!")
             else:
