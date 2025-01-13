@@ -69,6 +69,16 @@ def generate_message_for_zone(zone, zone_df, user_name_df):
     
     return message
 
+# Function to display grouped data
+def display_grouped_data(df, title):
+    st.write(f"### {title}")
+    grouped_df = df.groupby(['Cluster', 'Zone']).agg(
+        Site_Count=('Site', 'nunique'),
+        Unique_Sites=('Site Alias', 'unique')
+    ).reset_index()
+    
+    st.dataframe(grouped_df)  # Display the grouped data in a table format
+
 # Streamlit app
 st.title('Odin-s-Eye')
 
@@ -157,7 +167,7 @@ if site_access_file and rms_file and current_alarms_file:
         display_grouped_data(mismatches_df, "All Mismatched Sites")
 
     # Display matched sites
-    display_matched_sites(filtered_matched_df)
+    display_grouped_data(filtered_matched_df, "Filtered Matched Sites")
 
 else:
     st.write("Please upload all required files.")
