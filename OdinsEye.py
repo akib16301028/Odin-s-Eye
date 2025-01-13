@@ -37,35 +37,6 @@ def find_matched_sites(site_access_df, merged_df):
     matched_df['Status'] = matched_df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
     return matched_df
 
-# Function to display grouped data by Cluster and Zone in a table
-def display_grouped_data(grouped_df, title):
-    st.write(title)
-    clusters = grouped_df['Cluster'].unique()
-
-    for cluster in clusters:
-        st.markdown(f"**{cluster}**")
-        cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
-        zones = cluster_df['Zone'].unique()
-
-        for zone in zones:
-            st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)
-            zone_df = cluster_df[cluster_df['Zone'] == zone]
-            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
-            display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
-            display_df = display_df.fillna('')
-            st.table(display_df)
-        st.markdown("---")
-
-# Function to display matched sites with status
-def display_matched_sites(matched_df):
-    color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
-    def highlight_status(status):
-        return color_map.get(status, '')
-
-    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
-    st.write("Matched Sites with Status:")
-    st.dataframe(styled_df)
-
 # Function to send Telegram notification
 def send_telegram_notification(message, bot_token, chat_id):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -98,15 +69,15 @@ def generate_message_for_zone(zone, zone_df, user_name_df):
     
     return message
 
-
 # Streamlit app
 st.title('Odin-s-Eye')
 
-# File upload
+# Read USER NAME.xlsx from the repo
+user_name_df = pd.read_excel('USER NAME.xlsx')
+
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
-user_name_file = st.file_uploader("Upload the USER NAME Excel", type=["xlsx"])
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -115,15 +86,10 @@ if "filter_date" not in st.session_state:
 if "status_filter" not in st.session_state:
     st.session_state.status_filter = "All"
 
-if site_access_file and rms_file and current_alarms_file and user_name_file:
+if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
-    user_name_df = pd.read_excel(user_name_file)  # Load USER NAME file
-
-    # Display USER NAME file content in sidebar
-    st.sidebar.write("**USER Name File Contents:**")
-    st.sidebar.dataframe(user_name_df)
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
@@ -172,21 +138,15 @@ if site_access_file and rms_file and current_alarms_file and user_name_file:
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+        chat_id = "-1001509039244"
 
-        try:
-            for zone in zones:
-                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-                message = generate_message_for_zone(zone, zone_df, user_name_df)
-
-                # Send the notification
-                if send_telegram_notification(message, bot_token, chat_id):
-                    st.success(f"Notification for zone '{zone}' sent successfully!")
-                else:
-                    st.error(f"Failed to send notification for zone '{zone}'.")
-
-        except Exception as e:
-            st.error(f"Error processing notification for USER NAME.xlsx file: {e}")
+        for zone in zones:
+            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+            message = generate_message_for_zone(zone, zone_df, user_name_df)
+            if send_telegram_notification(message, bot_token, chat_id):
+                st.success(f"Notification for zone '{zone}' sent successfully!")
+            else:
+                st.error(f"Failed to send notification for zone '{zone}'.")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
