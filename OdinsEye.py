@@ -103,6 +103,7 @@ st.title('Odin-s-Eye')
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
+user_name_file = st.file_uploader("Upload the USER NAME Excel", type=["xlsx"])
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -111,10 +112,15 @@ if "filter_date" not in st.session_state:
 if "status_filter" not in st.session_state:
     st.session_state.status_filter = "All"
 
-if site_access_file and rms_file and current_alarms_file:
+if site_access_file and rms_file and current_alarms_file and user_name_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
+    user_name_df = pd.read_excel(user_name_file)  # Load USER NAME file
+
+    # Display USER NAME file content in sidebar
+    st.sidebar.write("**USER Name File Contents:**")
+    st.sidebar.dataframe(user_name_df)
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
@@ -163,13 +169,9 @@ if site_access_file and rms_file and current_alarms_file:
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+        chat_id = "-1001509039244"
 
         try:
-            # Read the USER NAME file
-            user_name_file = "USER NAME.xlsx"  # Assuming the file is in the same directory
-            user_name_df = pd.read_excel(user_name_file)
-            
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
                 message = generate_message_for_zone(zone, zone_df, user_name_df)
@@ -181,7 +183,7 @@ if site_access_file and rms_file and current_alarms_file:
                     st.error(f"Failed to send notification for zone '{zone}'.")
         
         except Exception as e:
-            st.error(f"Error reading USER NAME.xlsx file: {e}")
+            st.error(f"Error processing notification for USER NAME.xlsx file: {e}")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
