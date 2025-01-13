@@ -151,7 +151,7 @@ if site_access_file and rms_file and current_alarms_file:
     with st.sidebar:
         if st.button("Generate Message"):
             zones = filtered_mismatches_df['Zone'].unique()
-            st.session_state.generated_message = ""
+            st.session_state.generated_messages = {}
 
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
@@ -167,21 +167,28 @@ if site_access_file and rms_file and current_alarms_file:
                         message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
                     message += "\n"
                 message += f"@{responsible_name}, no site access request has been found for these door open alarms. Please take care and share us update.\n\n"
-                st.session_state.generated_message += message
+                st.session_state.generated_messages[zone] = message
 
-            st.success("Message generated successfully!")
+            st.success("Messages generated successfully!")
 
-    if "generated_message" in st.session_state:
-        st.subheader("Generated Message")
-        st.text_area("Message", st.session_state.generated_message, height=300)
+    if "generated_messages" in st.session_state:
+        st.subheader("Generated Messages")
+        for zone, message in st.session_state.generated_messages.items():
+            st.markdown(f"**Zone: {zone}**")
+            st.text_area(f"Message for {zone}", message, height=200)
 
-        if st.button("Send Message"):
+        if st.button("Send Messages"):
             bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
             chat_id = "-4537588687"
-            if send_telegram_notification(st.session_state.generated_message, bot_token, chat_id):
-                st.success("Message sent successfully!")
-            else:
-                st.error("Failed to send message.")
+            success = True
+
+            for zone, message in st.session_state.generated_messages.items():
+                if not send_telegram_notification(message, bot_token, chat_id):
+                    st.error(f"Failed to send message for zone: {zone}")
+                    success = False
+
+            if success:
+                st.success("All messages sent successfully!")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
