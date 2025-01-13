@@ -142,48 +142,30 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-    # Template feature in the sidebar
+    # Sidebar options
     st.sidebar.title("Options")
-    show_user_name = st.sidebar.checkbox("Show USER NAME Table")
-    
-    if show_user_name:
-        st.sidebar.write("USER NAME Table:")
-        st.sidebar.dataframe(user_name_df)
+    if st.sidebar.checkbox("Edit USER NAME Table"):
+        st.sidebar.write("Edit USER NAME Table:")
+        edited_user_name_df = st.sidebar.experimental_data_editor(user_name_df)
+        user_name_df = edited_user_name_df  # Update the USER NAME table dynamically
 
-    st.sidebar.title("Template")
-    suggestive_zones = user_name_df['Zone'].unique()
-    selected_zone = st.sidebar.selectbox("Select Zone", options=suggestive_zones)
-    selected_zone_name = user_name_df.loc[user_name_df['Zone'] == selected_zone, 'Name'].values[0]
-    template_message = f"@{selected_zone_name}, no site access request found for the following Door Open alarms in {selected_zone}. Please take care and share us an update."
-    st.sidebar.write("Template Message:")
-    st.sidebar.markdown(f"```{template_message}```")
-
-    # Move the "Send Telegram Notification" button to the top
-    if st.button("Send Telegram Notification"):
-        zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
-
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            zone_name = user_name_df.loc[user_name_df['Zone'] == zone, 'Name'].values[0]
-
-            # Add zone-specific template message
-            template_message = f"@{zone_name}, no site access request found for the following Door Open alarms in {zone}. Please take care and share us an update."
-
-            message = f"{template_message}\n\n*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
-            site_aliases = zone_df['Site Alias'].unique()
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success(f"Notification for zone '{zone}' sent successfully!")
+    if st.sidebar.checkbox("Send Telegram Notification Zone-Wise"):
+        selected_zone = st.sidebar.selectbox("Select Zone", user_name_df['Zone'].unique())
+        if st.sidebar.button("Send Notification"):
+            bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+            chat_id = "-4537588687"
+            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == selected_zone]
+            if not zone_df.empty:
+                zone_name = user_name_df.loc[user_name_df['Zone'] == selected_zone, 'Name'].values[0]
+                message = f"@{zone_name}, no site access request found for the following Door Open alarms in {selected_zone}."
+                for _, row in zone_df.iterrows():
+                    message += f"\nSite: {row['Site Alias']}, Start Time: {row['Start Time']}, End Time: {row['End Time']}"
+                if send_telegram_notification(message, bot_token, chat_id):
+                    st.sidebar.success(f"Notification sent for zone: {selected_zone}")
+                else:
+                    st.sidebar.error(f"Failed to send notification for zone: {selected_zone}")
             else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
+                st.sidebar.warning("No mismatches found for the selected zone.")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
@@ -194,7 +176,4 @@ if site_access_file and rms_file and current_alarms_file:
         display_grouped_data(mismatches_df, "All Mismatched Sites")
 
     # Display matched sites
-    display_matched_sites(filtered_matched_df)
-
-else:
-    st.write("Please upload all required files.")
+    display_matched_sites
