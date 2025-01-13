@@ -114,10 +114,11 @@ if site_access_file and rms_file and current_alarms_file:
                 unique_zones = user_name_df['Zone'].unique()
                 zone_select = st.sidebar.selectbox('Select Zone for Template', options=unique_zones)
 
-                # Suggestive Message Template based on selected zone
-                zone_message_template = f"Message template for zone *{zone_select}* will be shown here."
+                # Show the template only after a zone is selected
+                if zone_select:
+                    zone_message_template = f"Message template for zone *{zone_select}* will be shown here."
 
-                st.sidebar.write(zone_message_template)
+                    st.sidebar.write(zone_message_template)
 
         except Exception as e:
             st.error(f"Error reading USER NAME.xlsx file: {e}")
