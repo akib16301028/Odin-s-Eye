@@ -107,7 +107,7 @@ if site_access_file and rms_file and current_alarms_file:
 
     if st.sidebar.button("Send Notification"):
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-1001509039244"
+        chat_id = "-4537588687"
 
         if selected_zone_for_notification == "All":
             # Send notifications for all zones
