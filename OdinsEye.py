@@ -147,29 +147,38 @@ if site_access_file and rms_file and current_alarms_file:
     # Load user data for personalized messages
     user_df = load_user_data()
 
-    # Sidebar for message generation
-    with st.sidebar:
-        if st.button("Generate Message"):
-            zones = filtered_mismatches_df['Zone'].unique()
-            st.session_state.generated_messages = {}
+# Sidebar for message generation
+with st.sidebar:
+    if st.button("Generate Message"):
+        zones = filtered_mismatches_df['Zone'].unique()
+        st.session_state.generated_messages = {}
 
-            for zone in zones:
-                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-                responsible_name = user_df[user_df['Zone'] == zone]['Name'].iloc[0] if not user_df[user_df['Zone'] == zone].empty else "Team"
+        for zone in zones:
+            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+            responsible_names = user_df[user_df['Zone'] == zone]['Name'].tolist()
+            if not responsible_names:
+                responsible_names = ["Team"]  # Default if no names found
+            else:
+                # Ensure underscores are included in Telegram usernames
+                responsible_names = [name.replace(" ", "_") for name in responsible_names]
 
-                message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
-                site_aliases = zone_df['Site Alias'].unique()
-                for site_alias in site_aliases:
-                    site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                    message += f"#{site_alias}\n"
-                    for _, row in site_df.iterrows():
-                        end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                        message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                    message += "\n"
-                message += f"@{responsible_name}, no site access request has been found for these door open alarms. Please take care and share us update.\n\n"
-                st.session_state.generated_messages[zone] = message
+            # Generate message for each zone
+            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold title and zone name
+            site_aliases = zone_df['Site Alias'].unique()
 
-            st.success("Messages generated successfully!")
+            for site_alias in site_aliases:
+                site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                message += f"#{site_alias}\n"
+                for _, row in site_df.iterrows():
+                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                message += "\n"
+
+            # Add responsible names at the end of the message
+            message += f"@{', @'.join(responsible_names)}, no site access request has been found for these door open alarms. Please take care and share us update.\n\n"
+            st.session_state.generated_messages[zone] = message
+
+        st.success("Messages generated successfully!")
 
     if "generated_messages" in st.session_state:
         st.subheader("Generated Messages")
@@ -189,6 +198,7 @@ if site_access_file and rms_file and current_alarms_file:
 
             if success:
                 st.success("All messages sent successfully!")
+
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
