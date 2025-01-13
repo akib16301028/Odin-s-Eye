@@ -85,72 +85,61 @@ rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
 user_name_file = "USER NAME.xlsx"
 
-if "filter_time" not in st.session_state:
-    st.session_state.filter_time = datetime.now().time()
-if "filter_date" not in st.session_state:
-    st.session_state.filter_date = datetime.now().date()
-if "status_filter" not in st.session_state:
-    st.session_state.status_filter = "All"
-
 if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
-
     user_name_df = pd.read_excel(user_name_file)
 
-    merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
-
-    # Process mismatches
-    mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
-    mismatches_df['Start Time'] = pd.to_datetime(mismatches_df['Start Time'], errors='coerce')
-
-    # Process matches
-    matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
-
-    # Filter inputs
-    selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
-    selected_time = st.time_input("Select Time", value=st.session_state.filter_time)
-    filter_datetime = datetime.combine(selected_date, selected_time)
-
-    # Filter matched data
-    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
-    time_filter_condition = (matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)
-    status_filter_condition = matched_df['Status'] == status_filter if status_filter != "All" else True
-    filtered_matched_df = matched_df[time_filter_condition & status_filter_condition]
-
-    # Additions start here
+    # Editable USER NAME table
     st.sidebar.title("Edit USER NAME Table")
-    if st.sidebar.checkbox("Edit Zone-wise Concern Names"):
-        selected_zone = st.sidebar.selectbox("Select Zone to Edit", user_name_df['Zone'].unique())
-        new_concern_name = st.sidebar.text_input(f"New Name for Zone {selected_zone}", "")
-        if st.sidebar.button("Update Name"):
-            user_name_df.loc[user_name_df['Zone'] == selected_zone, 'Name'] = new_concern_name
-            st.sidebar.success(f"Name for Zone {selected_zone} updated to {new_concern_name}")
+    edited_user_name_df = st.sidebar.experimental_data_editor(user_name_df, use_container_width=True)
+    if st.sidebar.button("Save USER NAME Changes"):
+        user_name_df = edited_user_name_df
+        st.sidebar.success("USER NAME table updated successfully!")
 
+    merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
+    mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
+    
+    # Send Telegram Notification Zone-Wise with "All" option
     st.sidebar.title("Send Telegram Notification Zone-Wise")
-    selected_zone_for_notification = st.sidebar.selectbox("Select Zone", options=mismatches_df['Zone'].unique())
-    if st.sidebar.button("Send Zone Notification"):
-        zone_df = mismatches_df[mismatches_df['Zone'] == selected_zone_for_notification]
-        zone_name = user_name_df.loc[user_name_df['Zone'] == selected_zone_for_notification, 'Name'].values[0]
+    selected_zone_for_notification = st.sidebar.selectbox("Select Zone", options=["All"] + list(mismatches_df['Zone'].unique()))
 
-        message = f"@{zone_name}, no site access request found for the following Door Open alarms in {selected_zone_for_notification}. Please take care and share us an update.\n\n*Door Open Notification*\n"
-        for _, row in zone_df.iterrows():
-            end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-            message += f"Start Time: {row['Start Time']}, End Time: {end_time_display}\n"
-
+    if st.sidebar.button("Send Notification"):
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
-        if send_telegram_notification(message, bot_token, chat_id):
-            st.sidebar.success(f"Notification sent for Zone {selected_zone_for_notification}")
+        chat_id = "-1001509039244"
+
+        if selected_zone_for_notification == "All":
+            # Send notifications for all zones
+            for zone in mismatches_df['Zone'].unique():
+                zone_df = mismatches_df[mismatches_df['Zone'] == zone]
+                zone_name = user_name_df.loc[user_name_df['Zone'] == zone, 'Name'].values[0]
+
+                message = f"@{zone_name}, no site access request found for the following Door Open alarms in {zone}. Please take care and share us an update.\n\n*Door Open Notification*\n"
+                for _, row in zone_df.iterrows():
+                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                    message += f"Start Time: {row['Start Time']}, End Time: {end_time_display}\n"
+
+                if send_telegram_notification(message, bot_token, chat_id):
+                    st.sidebar.success(f"Notification sent for Zone {zone}")
+                else:
+                    st.sidebar.error(f"Failed to send notification for Zone {zone}")
         else:
-            st.sidebar.error(f"Failed to send notification for Zone {selected_zone_for_notification}")
+            # Send notification for the selected zone
+            zone_df = mismatches_df[mismatches_df['Zone'] == selected_zone_for_notification]
+            zone_name = user_name_df.loc[user_name_df['Zone'] == selected_zone_for_notification, 'Name'].values[0]
+
+            message = f"@{zone_name}, no site access request found for the following Door Open alarms in {selected_zone_for_notification}. Please take care and share us an update.\n\n*Door Open Notification*\n"
+            for _, row in zone_df.iterrows():
+                end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                message += f"Start Time: {row['Start Time']}, End Time: {end_time_display}\n"
+
+            if send_telegram_notification(message, bot_token, chat_id):
+                st.sidebar.success(f"Notification sent for Zone {selected_zone_for_notification}")
+            else:
+                st.sidebar.error(f"Failed to send notification for Zone {selected_zone_for_notification}")
 
     # Display mismatches
-    st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-    display_grouped_data(mismatches_df[mismatches_df['Start Time'] > filter_datetime], "Filtered Mismatched Sites")
-
-    # Display matched sites
-    display_matched_sites(filtered_matched_df)
+    display_grouped_data(mismatches_df, "All Mismatched Sites")
 else:
     st.write("Please upload all required files.")
