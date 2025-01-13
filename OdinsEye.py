@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
-import requests
+import requests  # For sending Telegram notifications
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -10,7 +10,7 @@ def extract_site(site_name):
 # Function to merge RMS and Current Alarms data
 def merge_rms_alarms(rms_df, alarms_df):
     alarms_df['Start Time'] = alarms_df['Alarm Time']
-    alarms_df['End Time'] = pd.NaT
+    alarms_df['End Time'] = pd.NaT  # No End Time in Current Alarms, set to NaT
 
     rms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
     alarms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
@@ -23,7 +23,7 @@ def find_mismatches(site_access_df, merged_df):
     site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
     merged_comparison_df = pd.merge(merged_df, site_access_df, left_on='Site', right_on='SiteName_Extracted', how='left', indicator=True)
     mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
-    mismatches_df['End Time'] = mismatches_df['End Time'].fillna('Not Closed')
+    mismatches_df['End Time'] = mismatches_df['End Time'].fillna('Not Closed')  # Replace NaT with Not Closed
     return mismatches_df
 
 # Function to find matched sites and their status
@@ -72,7 +72,7 @@ def send_telegram_notification(message, bot_token, chat_id):
     payload = {
         "chat_id": chat_id,
         "text": message,
-        "parse_mode": "Markdown"
+        "parse_mode": "Markdown"  # Use Markdown for plain text
     }
     response = requests.post(url, json=payload)
     return response.status_code == 200
@@ -80,39 +80,10 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('Odin-s-Eye')
 
-# Sidebar: Show "USER NAME.xlsx" content and Template feature
-user_names_df = None
-show_usernames = st.sidebar.checkbox("Show User Name")
-
-if show_usernames:
-    try:
-        user_names_df = pd.read_excel("USER NAME.xlsx")
-        st.sidebar.write("User Names:")
-        st.sidebar.dataframe(user_names_df)
-    except FileNotFoundError:
-        st.sidebar.error("USER NAME.xlsx file not found.")
-
-# Sidebar: Template feature
-if user_names_df is not None:
-    st.sidebar.subheader("Template")
-    zones = user_names_df['Zone'].unique()
-    selected_zone = st.sidebar.selectbox("Select a Zone", options=zones, help="Choose a zone to generate a message template.")
-
-    if selected_zone:
-        concern_name = user_names_df[user_names_df['Zone'] == selected_zone]['Name'].values
-        if len(concern_name) > 0:
-            concern_name = concern_name[0]
-            template_message = (
-                f"@{concern_name}, no site access request found for the following Door Open alarms in {selected_zone}. "
-                "Please take care and share us an update."
-            )
-            st.sidebar.text_area("Generated Template Message", value=template_message, height=100, disabled=True)
-        else:
-            st.sidebar.error(f"No concern name found for the selected zone: {selected_zone}")
-
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
+user_name_file = "USER NAME.xlsx"
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -125,6 +96,8 @@ if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
+
+    user_name_df = pd.read_excel(user_name_file)
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
@@ -169,6 +142,22 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
+    # Template feature in the sidebar
+    st.sidebar.title("Options")
+    show_user_name = st.sidebar.checkbox("Show USER NAME Table")
+    
+    if show_user_name:
+        st.sidebar.write("USER NAME Table:")
+        st.sidebar.dataframe(user_name_df)
+
+    st.sidebar.title("Template")
+    suggestive_zones = user_name_df['Zone'].unique()
+    selected_zone = st.sidebar.selectbox("Select Zone", options=suggestive_zones)
+    selected_zone_name = user_name_df.loc[user_name_df['Zone'] == selected_zone, 'Name'].values[0]
+    template_message = f"@{selected_zone_name}, no site access request found for the following Door Open alarms in {selected_zone}. Please take care and share us an update."
+    st.sidebar.write("Template Message:")
+    st.sidebar.markdown(f"```{template_message}```")
+
     # Move the "Send Telegram Notification" button to the top
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
@@ -177,7 +166,12 @@ if site_access_file and rms_file and current_alarms_file:
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"*Door Open Notification*\n\n*{zone}*\n\n"
+            zone_name = user_name_df.loc[user_name_df['Zone'] == zone, 'Name'].values[0]
+
+            # Add zone-specific template message
+            template_message = f"@{zone_name}, no site access request found for the following Door Open alarms in {zone}. Please take care and share us an update."
+
+            message = f"{template_message}\n\n*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
                 site_df = zone_df[zone_df['Site Alias'] == site_alias]
