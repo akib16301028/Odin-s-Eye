@@ -37,6 +37,38 @@ def find_matched_sites(site_access_df, merged_df):
     matched_df['Status'] = matched_df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
     return matched_df
 
+# Function to display grouped data by Cluster and Zone in a table
+def display_grouped_data(grouped_df, title):
+    st.write(title)
+    clusters = grouped_df['Cluster'].unique()
+
+    for cluster in clusters:
+        st.markdown(f"**{cluster}**")
+        cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
+        zones = cluster_df['Zone'].unique()
+
+        for zone in zones:
+            st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)
+            zone_df = cluster_df[cluster_df['Zone'] == zone]
+            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
+            display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
+            display_df = display_df.fillna('')
+
+            # Display the zone data as a table for each zone
+            st.table(display_df)
+        st.markdown("---")
+
+# Function to display matched sites with status
+def display_matched_sites(matched_df):
+    color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
+    
+    def highlight_status(status):
+        return color_map.get(status, '')
+
+    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
+    st.write("Matched Sites with Status:")
+    st.dataframe(styled_df)
+
 # Function to send Telegram notification
 def send_telegram_notification(message, bot_token, chat_id):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -48,42 +80,8 @@ def send_telegram_notification(message, bot_token, chat_id):
     response = requests.post(url, json=payload)
     return response.status_code == 200
 
-# Function to generate the message for mismatched zones
-def generate_message_for_zone(zone, zone_df, user_name_df):
-    message = f"*Door Open Notification*\n\n*{zone}*\n\n"
-    
-    # Check if the zone exists in the USER NAME table and get the corresponding name
-    corresponding_zone_name = user_name_df[user_name_df['Zone'] == zone]['Name'].values
-    if corresponding_zone_name:
-        # Use the name exactly as it appears in the USER NAME file (with underscores intact)
-        message += f"@{corresponding_zone_name[0]}, no site access request found for following Door Open alarms. Please take care and share us update.\n\n"
-
-    site_aliases = zone_df['Site Alias'].unique()
-    for site_alias in site_aliases:
-        site_df = zone_df[zone_df['Site Alias'] == site_alias]
-        message += f"#{site_alias}\n"
-        for _, row in site_df.iterrows():
-            end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-            message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-        message += "\n"
-    
-    return message
-
-# Function to display grouped data
-def display_grouped_data(df, title):
-    st.write(f"### {title}")
-    zones = df['Zone'].unique()
-    
-    for zone in zones:
-        zone_df = df[df['Zone'] == zone]
-        st.write(f"### {zone}")
-        st.dataframe(zone_df)  # Display each zone as a separate table
-
 # Streamlit app
 st.title('Odin-s-Eye')
-
-# Read USER NAME.xlsx from the repo
-user_name_df = pd.read_excel('USER NAME.xlsx')
 
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
@@ -144,25 +142,23 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-    # Sidebar: Select zone to view the message
-    st.sidebar.header("Troubleshoot Telegram Message")
-    selected_zone = st.sidebar.selectbox("Select Zone", options=filtered_mismatches_df['Zone'].unique())
-
-    # Generate message for selected zone and display it
-    if selected_zone:
-        zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == selected_zone]
-        message = generate_message_for_zone(selected_zone, zone_df, user_name_df)
-        st.sidebar.text_area(f"Generated Message for {selected_zone}", message, height=300)
-
     # Move the "Send Telegram Notification" button to the top
     if st.button("Send Telegram Notification"):
         zones = filtered_mismatches_df['Zone'].unique()
         bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-4537588687"
+        chat_id = "-1001509039244"
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = generate_message_for_zone(zone, zone_df, user_name_df)
+            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
+            site_aliases = zone_df['Site Alias'].unique()
+            for site_alias in site_aliases:
+                site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                message += f"#{site_alias}\n"
+                for _, row in site_df.iterrows():
+                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                message += "\n"
             if send_telegram_notification(message, bot_token, chat_id):
                 st.success(f"Notification for zone '{zone}' sent successfully!")
             else:
@@ -170,13 +166,11 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
-        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
-    else:
-        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-        display_grouped_data(mismatches_df, "All Mismatched Sites")
+        st.write(f"Mismatched Sites (After {filter_datetime}):")
+        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites:")
 
     # Display matched sites
-    display_grouped_data(filtered_matched_df, "Filtered Matched Sites")
-
+    if not filtered_matched_df.empty:
+        display_matched_sites(filtered_matched_df)
 else:
-    st.write("Please upload all required files.")
+    st.warning("Please upload all required Excel files (Site Access, RMS, Current Alarms).")
