@@ -98,6 +98,9 @@ if site_access_file and rms_file and current_alarms_file:
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
 
+    # Load the USER NAME.xlsx file
+    user_name_df = pd.read_excel("USER NAME.xlsx")
+
     # Filter inputs (date and time)
     selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
     selected_time = st.time_input("Select Time", value=st.session_state.filter_time)
@@ -147,6 +150,10 @@ if site_access_file and rms_file and current_alarms_file:
 
         for zone in zones:
             zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+
+            # Get the corresponding name for the zone
+            name = user_name_df[user_name_df['Zone'] == zone]['Name'].values[0] if not user_name_df[user_name_df['Zone'] == zone].empty else "Unknown"
+
             message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
             site_aliases = zone_df['Site Alias'].unique()
             for site_alias in site_aliases:
@@ -156,6 +163,8 @@ if site_access_file and rms_file and current_alarms_file:
                     end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
                     message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
                 message += "\n"
+            message += f"@{name}, no site access request has been found for these door open alarms. Please take care and share us update."
+
             if send_telegram_notification(message, bot_token, chat_id):
                 st.success(f"Notification for zone '{zone}' sent successfully!")
             else:
@@ -174,4 +183,3 @@ if site_access_file and rms_file and current_alarms_file:
 
 else:
     st.write("Please upload all required files.")
- 
