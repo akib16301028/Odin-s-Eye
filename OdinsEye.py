@@ -87,15 +87,6 @@ current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=[
 # Option to display "USER NAME.xlsx" file content
 show_user_name = st.sidebar.checkbox('Show User Name Excel file')
 
-if show_user_name:
-    user_name_file = "USER NAME.xlsx"  # Assuming the file is in the same directory
-    try:
-        user_name_df = pd.read_excel(user_name_file)
-        st.write("User Name Excel Content:")
-        st.table(user_name_df)
-    except Exception as e:
-        st.error(f"Error reading USER NAME.xlsx file: {e}")
-
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
 if "filter_date" not in st.session_state:
@@ -109,6 +100,27 @@ if site_access_file and rms_file and current_alarms_file:
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
+
+    # Template: Show user name file
+    if show_user_name:
+        user_name_file = "USER NAME.xlsx"  # Assuming the file is in the same directory
+        try:
+            user_name_df = pd.read_excel(user_name_file)
+            st.sidebar.write("User Name Excel Content:")
+            st.sidebar.table(user_name_df)
+
+            # Populate Zone column options from User Name table
+            if 'Zone' in user_name_df.columns:
+                unique_zones = user_name_df['Zone'].unique()
+                zone_select = st.sidebar.selectbox('Select Zone for Template', options=unique_zones)
+
+                # Suggestive Message Template based on selected zone
+                zone_message_template = f"Message template for zone *{zone_select}* will be shown here."
+
+                st.sidebar.write(zone_message_template)
+
+        except Exception as e:
+            st.error(f"Error reading USER NAME.xlsx file: {e}")
 
     # Filter inputs (date and time)
     selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
