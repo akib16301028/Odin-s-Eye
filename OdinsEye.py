@@ -52,7 +52,7 @@ def display_grouped_data(grouped_df, title):
             zone_df = cluster_df[cluster_df['Zone'] == zone]
             display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
             display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
-            display_df = display_df.fillna('')
+            display_df = display_df.fillna('')  # Replace NaN with empty strings
             st.table(display_df)
         st.markdown("---")
 
@@ -77,15 +77,32 @@ def send_telegram_notification(message, bot_token, chat_id):
     response = requests.post(url, json=payload)
     return response.status_code == 200
 
+# Function to generate the message for mismatched zones
+def generate_message_for_zone(zone, zone_df, user_name_df):
+    message = f"*Door Open Notification*\n\n*{zone}*\n\n"
+    
+    # Check if the zone exists in the USER NAME table and get the corresponding name
+    corresponding_zone_name = user_name_df[user_name_df['Zone'] == zone]['Name'].values
+    if corresponding_zone_name:
+        message += f"@{corresponding_zone_name[0]}, no site access request found for following Door Open alarms. Please take care and share us update.\n\n"
+
+    site_aliases = zone_df['Site Alias'].unique()
+    for site_alias in site_aliases:
+        site_df = zone_df[zone_df['Site Alias'] == site_alias]
+        message += f"#{site_alias}\n"
+        for _, row in site_df.iterrows():
+            end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+            message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+        message += "\n"
+    
+    return message
+
 # Streamlit app
 st.title('Odin-s-Eye')
 
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
-
-# Option to display "USER NAME.xlsx" file content
-show_user_name = st.sidebar.checkbox('Show User Name Excel file')
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
@@ -100,28 +117,6 @@ if site_access_file and rms_file and current_alarms_file:
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
-
-    # Template: Show user name file
-    if show_user_name:
-        user_name_file = "USER NAME.xlsx"  # Assuming the file is in the same directory
-        try:
-            user_name_df = pd.read_excel(user_name_file)
-            st.sidebar.write("User Name Excel Content:")
-            st.sidebar.table(user_name_df)
-
-            # Populate Zone column options from User Name table
-            if 'Zone' in user_name_df.columns:
-                unique_zones = user_name_df['Zone'].unique()
-                zone_select = st.sidebar.selectbox('Select Zone for Template', options=unique_zones)
-
-                # Show the template only after a zone is selected
-                if zone_select:
-                    zone_message_template = f"Message template for zone *{zone_select}* will be shown here."
-
-                    st.sidebar.write(zone_message_template)
-
-        except Exception as e:
-            st.error(f"Error reading USER NAME.xlsx file: {e}")
 
     # Filter inputs (date and time)
     selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
@@ -164,60 +159,29 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-    # Function to send Telegram notification
-def send_telegram_notification(message, bot_token, chat_id):
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"  # Use Markdown for plain text
-    }
-    response = requests.post(url, json=payload)
-    return response.status_code == 200
+    # Move the "Send Telegram Notification" button to the top
+    if st.button("Send Telegram Notification"):
+        zones = filtered_mismatches_df['Zone'].unique()
+        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+        chat_id = "-1001509039244"
 
-# Function to generate the message for mismatched zones
-def generate_message_for_zone(zone, zone_df, user_name_df):
-    message = f"*Door Open Notification*\n\n*{zone}*\n\n"
-    
-    # Check if the zone exists in the USER NAME table and get the corresponding name
-    corresponding_zone_name = user_name_df[user_name_df['Zone'] == zone]['Name'].values
-    if corresponding_zone_name:
-        message += f"@{corresponding_zone_name[0]}, no site access request found for following Door Open alarms. Please take care and share us update.\n\n"
+        try:
+            # Read the USER NAME file
+            user_name_file = "USER NAME.xlsx"  # Assuming the file is in the same directory
+            user_name_df = pd.read_excel(user_name_file)
+            
+            for zone in zones:
+                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+                message = generate_message_for_zone(zone, zone_df, user_name_df)
 
-    site_aliases = zone_df['Site Alias'].unique()
-    for site_alias in site_aliases:
-        site_df = zone_df[zone_df['Site Alias'] == site_alias]
-        message += f"#{site_alias}\n"
-        for _, row in site_df.iterrows():
-            end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-            message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-        message += "\n"
-    
-    return message
-
-# Streamlit app section for sending Telegram notification
-if st.button("Send Telegram Notification"):
-    zones = filtered_mismatches_df['Zone'].unique()
-    bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-    chat_id = "-1001509039244"
-
-    try:
-        # Read the USER NAME file
-        user_name_file = "USER NAME.xlsx"  # Assuming the file is in the same directory
-        user_name_df = pd.read_excel(user_name_file)
+                # Send the notification
+                if send_telegram_notification(message, bot_token, chat_id):
+                    st.success(f"Notification for zone '{zone}' sent successfully!")
+                else:
+                    st.error(f"Failed to send notification for zone '{zone}'.")
         
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = generate_message_for_zone(zone, zone_df, user_name_df)
-
-            # Send the notification
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success(f"Notification for zone '{zone}' sent successfully!")
-            else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
-    
-    except Exception as e:
-        st.error(f"Error reading USER NAME.xlsx file: {e}")
+        except Exception as e:
+            st.error(f"Error reading USER NAME.xlsx file: {e}")
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
