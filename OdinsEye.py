@@ -267,5 +267,24 @@ if st.sidebar.button("Update Username"):
     else:
         st.error("USER NAME.xlsx file not found in the repository.")
 
+# Update Zone Concern Option
+if st.sidebar.button("Update Zone Concern"):
+    st.sidebar.markdown("## Update Zone Concern")
+
+    # Dropdown to select zone
+    selected_zone_concern = st.sidebar.selectbox("Select Zone", options=user_df['Zone'].unique())
+
+    # Show current concern and input field to update
+    current_concern = user_df.loc[user_df['Zone'] == selected_zone_concern, 'Concern'].values[0] if 'Concern' in user_df.columns else "Not Specified"
+    new_concern = st.sidebar.text_input("Update Concern", value=current_concern)
+
+    # Update button
+    if st.sidebar.button("Save Concern"):
+        if 'Concern' not in user_df.columns:
+            user_df['Concern'] = "Not Specified"  # Add the column if it doesn't exist
+        user_df.loc[user_df['Zone'] == selected_zone_concern, 'Concern'] = new_concern
+        save_user_data(user_file_path, user_df)
+        st.sidebar.success("Zone concern updated successfully!")
+
 else:
     st.write("Please upload all required files.")
