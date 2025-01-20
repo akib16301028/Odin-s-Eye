@@ -79,7 +79,7 @@ def send_telegram_notification(message, bot_token, chat_id):
     return response.status_code == 200
 
 # Streamlit app
-st.title('Odin-s-Eye')
+st.title('🛡️Odin-s-Eye🛡️')
 
 site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
 rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
