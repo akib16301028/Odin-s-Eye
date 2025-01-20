@@ -173,6 +173,7 @@ if site_access_file and rms_file and current_alarms_file:
     display_matched_sites(filtered_matched_df)
 
 import os  # For file path operations
+import requests  # For sending HTTP requests
 
 # Streamlit Sidebar
 st.sidebar.title("Options")
@@ -226,7 +227,7 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
                 if response.status_code == 200:
                     st.success(f"Notification for zone '{zone}' sent successfully!")
                 else:
-                    st.error(f"Failed to send notification for zone '{zone}'.")
+                    st.error(f"Failed to send notification for zone '{zone}'. Response: {response.json()}")
         else:
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
     else:
