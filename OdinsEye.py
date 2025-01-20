@@ -171,44 +171,54 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Display matched sites
     display_matched_sites(filtered_matched_df)
-import os
-# Load the USER NAME.xlsx file
-user_df = pd.read_excel("/mnt/data/USER NAME (1).xlsx")
 
-# Ensure proper column names
-if "Zone" in user_df.columns and "Name" in user_df.columns:
-    # Create a mapping of Zone to Name, preserving underscores
-    zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
+import os  # For file path operations
 
-    # Iterate over zones in mismatched data and send notifications
-    zones = filtered_mismatches_df['Zone'].unique()
-    bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-    chat_id = "-1001509039244"
+# Streamlit Sidebar
+st.sidebar.title("Options")
+if st.sidebar.button("Notification & Mention Zone Concern"):
+    user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
+    
+    if os.path.exists(user_file_path):
+        user_df = pd.read_excel(user_file_path)
 
-    for zone in zones:
-        zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-        message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
-        site_aliases = zone_df['Site Alias'].unique()
+        # Ensure proper column names
+        if "Zone" in user_df.columns and "Name" in user_df.columns:
+            # Create a mapping of Zone to Name
+            zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
 
-        for site_alias in site_aliases:
-            site_df = zone_df[zone_df['Site Alias'] == site_alias]
-            message += f"#{site_alias}\n"
-            for _, row in site_df.iterrows():
-                end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-            message += "\n"
+            # Iterate over zones in mismatched data and send notifications
+            zones = filtered_mismatches_df['Zone'].unique()
+            bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+            chat_id = "-1001509039244"
 
-        # Append mention of the responsible person for the zone
-        if zone in zone_to_name:
-            # Use the raw name from the file without altering underscores
-            message += f"{zone_to_name[zone]}, please take care.\n"
+            for zone in zones:
+                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+                message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
+                site_aliases = zone_df['Site Alias'].unique()
 
-        if send_telegram_notification(message, bot_token, chat_id):
-            st.success(f"Notification for zone '{zone}' sent successfully!")
+                for site_alias in site_aliases:
+                    site_df = zone_df[zone_df['Site Alias'] == site_alias]
+                    message += f"#{site_alias}\n"
+                    for _, row in site_df.iterrows():
+                        end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+                        message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                    message += "\n"
+
+                # Append mention of the responsible person for the zone
+                if zone in zone_to_name:
+                    message += f"@{zone_to_name[zone]}, please take care.\n"
+
+                if send_telegram_notification(message, bot_token, chat_id):
+                    st.success(f"Notification for zone '{zone}' sent successfully!")
+                else:
+                    st.error(f"Failed to send notification for zone '{zone}'.")
         else:
-            st.error(f"Failed to send notification for zone '{zone}'.")
-else:
-    st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
+            st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
+    else:
+        st.error("USER NAME.xlsx file not found in the repository.")
+
+
 
 else:
     st.write("Please upload all required files.")
