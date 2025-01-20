@@ -139,27 +139,28 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-    # Move the "Send Telegram Notification" button to the top
-    if st.button("Send Telegram Notification"):
-        zones = filtered_mismatches_df['Zone'].unique()
-        bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-        chat_id = "-1001509039244"
+   # Move the "Send Telegram Notification" button to the top
+# if st.button("Send Telegram Notification"):
+#     zones = filtered_mismatches_df['Zone'].unique()
+#     bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
+#     chat_id = "-1001509039244"
 
-        for zone in zones:
-            zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-            message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
-            site_aliases = zone_df['Site Alias'].unique()
-            for site_alias in site_aliases:
-                site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                message += f"#{site_alias}\n"
-                for _, row in site_df.iterrows():
-                    end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                    message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-                message += "\n"
-            if send_telegram_notification(message, bot_token, chat_id):
-                st.success(f"Notification for zone '{zone}' sent successfully!")
-            else:
-                st.error(f"Failed to send notification for zone '{zone}'.")
+#     for zone in zones:
+#         zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
+#         message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
+#         site_aliases = zone_df['Site Alias'].unique()
+#         for site_alias in site_aliases:
+#             site_df = zone_df[zone_df['Site Alias'] == site_alias]
+#             message += f"#{site_alias}\n"
+#             for _, row in site_df.iterrows():
+#                 end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
+#                 message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+#             message += "\n"
+#         if send_telegram_notification(message, bot_token, chat_id):
+#             st.success(f"Notification for zone '{zone}' sent successfully!")
+#         else:
+#             st.error(f"Failed to send notification for zone '{zone}'.")
+
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
@@ -179,7 +180,7 @@ import streamlit as st
 
 # Streamlit Sidebar
 st.sidebar.title("Options")
-if st.sidebar.button("Notification & Mention Zone Concern"):
+if st.sidebar.button("🗨️Send Telegram Notification"):
     user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
     
     if os.path.exists(user_file_path):
