@@ -200,7 +200,7 @@ if st.sidebar.button("💬 Telegram Notification"):
             # Iterate over zones in mismatched data and send notifications
             zones = filtered_mismatches_df['Zone'].unique()
             bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-            chat_id = "-1001509039244"
+            chat_id = "-4537588687"
 
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
