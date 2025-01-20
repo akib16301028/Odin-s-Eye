@@ -134,7 +134,7 @@ if site_access_file and rms_file and current_alarms_file:
     filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
 
     # Add the status filter dropdown right before the matched sites table
-    status_filter = st.selectbox("Filter by Status", options=["All", "Valid", "Expired"], index=0)
+    status_filter = st.selectbox("SA-Request Valid/Expired", options=["All", "Valid", "Expired"], index=0)
 
     # Update session state for status filter
     if status_filter != st.session_state.status_filter:
