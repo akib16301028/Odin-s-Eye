@@ -237,7 +237,7 @@ if st.sidebar.button("💬 Send Telegram Notification"):
                 if zone in zone_to_name:
                     # Escape underscores in the name
                     escaped_name = zone_to_name[zone].replace("_", "\\_")
-                    message += f"**@{escaped_name}**, please take care of this issue.\n"
+                    message += f"**@{escaped_name}**, no site access request found for this door open alarms. Please share take care and share us update.\n"
 
                 # Send the plain-text message
                 payload = {
