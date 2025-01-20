@@ -179,18 +179,19 @@ import streamlit as st
 
 # Streamlit Sidebar
 st.sidebar.title("Options")
-if st.sidebar.button("Notification & Mention Zone Concern"):
-    user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
-    
-    if os.path.exists(user_file_path):
-        user_df = pd.read_excel(user_file_path)
 
-        # Ensure proper column names
-        if "Zone" in user_df.columns and "Name" in user_df.columns:
-            # Create a mapping of Zone to Name
-            zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
+# Load user file
+user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
+if os.path.exists(user_file_path):
+    user_df = pd.read_excel(user_file_path)
 
-            # Iterate over zones in mismatched data and send notifications
+    # Ensure proper column names
+    if "Zone" in user_df.columns and "Name" in user_df.columns:
+        zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
+
+        # Option: Notification & Mention Zone Concern
+        if st.sidebar.button("Notification & Mention Zone Concern"):
+            # Existing notification logic
             zones = filtered_mismatches_df['Zone'].unique()
             bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
             chat_id = "-4537588687"
@@ -233,13 +234,27 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
                     st.success(f"Notification for zone '{zone}' sent successfully!")
                 else:
                     st.error(f"Failed to send notification for zone '{zone}'.")
-        else:
-            st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
+        
+        # New Option: Update Username
+        st.sidebar.markdown("### Update Username")
+        selected_zone = st.sidebar.selectbox("Select Zone", options=user_df["Zone"].unique())
+        
+        # Display default username for the selected zone
+        default_username = zone_to_name.get(selected_zone, "No user assigned")
+        updated_username = st.sidebar.text_input("Edit Username", value=default_username)
+
+        # Save updated username if changed
+        if st.sidebar.button("Save Username"):
+            if updated_username:
+                user_df.loc[user_df["Zone"] == selected_zone, "Name"] = updated_username
+                user_df.to_excel(user_file_path, index=False)
+                st.sidebar.success(f"Username for zone '{selected_zone}' updated to '{updated_username}'!")
+            else:
+                st.sidebar.error("Username cannot be empty!")
     else:
-        st.error("USER NAME.xlsx file not found in the repository.")
-
-
-
+        st.sidebar.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
+else:
+    st.sidebar.error("USER NAME.xlsx file not found in the repository.")
 
 
 
