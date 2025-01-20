@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 from datetime import datetime
 import requests  # For sending Telegram notifications
+import os  # For file path operations
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -139,29 +140,6 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-   # Move the "Send Telegram Notification" button to the top
-# if st.button("Send Telegram Notification"):
-#     zones = filtered_mismatches_df['Zone'].unique()
-#     bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-#     chat_id = "-1001509039244"
-
-#     for zone in zones:
-#         zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-#         message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
-#         site_aliases = zone_df['Site Alias'].unique()
-#         for site_alias in site_aliases:
-#             site_df = zone_df[zone_df['Site Alias'] == site_alias]
-#             message += f"#{site_alias}\n"
-#             for _, row in site_df.iterrows():
-#                 end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-#                 message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
-#             message += "\n"
-#         if send_telegram_notification(message, bot_token, chat_id):
-#             st.success(f"Notification for zone '{zone}' sent successfully!")
-#         else:
-#             st.error(f"Failed to send notification for zone '{zone}'.")
-
-
     # Display mismatches
     if not filtered_mismatches_df.empty:
         st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
@@ -173,16 +151,30 @@ if site_access_file and rms_file and current_alarms_file:
     # Display matched sites
     display_matched_sites(filtered_matched_df)
 
-import os  # For file path operations
-import pandas as pd
-import requests
-import streamlit as st
+# Function to update the user name for a specific zone
+def update_zone_user(zone, new_name, user_file_path):
+    if os.path.exists(user_file_path):
+        user_df = pd.read_excel(user_file_path)
+
+        # Ensure proper column names
+        if "Zone" in user_df.columns and "Name" in user_df.columns:
+            # Update the name for the selected zone
+            user_df.loc[user_df['Zone'] == zone, 'Name'] = new_name
+
+            # Save the updated DataFrame back to the file
+            user_df.to_excel(user_file_path, index=False)
+            return True, "Zone concern updated successfully!"
+        else:
+            return False, "The USER NAME.xlsx file must have 'Zone' and 'Name' columns."
+    else:
+        return False, "USER NAME.xlsx file not found in the repository."
 
 # Streamlit Sidebar
 st.sidebar.title("Options")
+
 if st.sidebar.button("💬 Telegram Notification"):
     user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
-    
+
     if os.path.exists(user_file_path):
         user_df = pd.read_excel(user_file_path)
 
@@ -203,7 +195,7 @@ if st.sidebar.button("💬 Telegram Notification"):
                 zone_df['End Time'] = zone_df['End Time'].replace("Not Closed", None)
                 sorted_zone_df = zone_df.sort_values(by='End Time', na_position='first')
                 sorted_zone_df['End Time'] = sorted_zone_df['End Time'].fillna("Not Closed")
-                
+
                 message = f"❗Door Open Notification❗\n\n🚩 {zone}\n\n"
                 site_aliases = sorted_zone_df['Site Alias'].unique()
 
@@ -236,61 +228,5 @@ if st.sidebar.button("💬 Telegram Notification"):
                     st.error(f"Failed to send notification for zone '{zone}'.")
         else:
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
-
-    # Function to update the user name for a specific zone
-def update_zone_user(zone, new_name, user_file_path):
-    if os.path.exists(user_file_path):
-        user_df = pd.read_excel(user_file_path)
-
-        # Ensure proper column names
-        if "Zone" in user_df.columns and "Name" in user_df.columns:
-            # Update the name for the selected zone
-            user_df.loc[user_df['Zone'] == zone, 'Name'] = new_name
-
-            # Save the updated DataFrame back to the file
-            user_df.to_excel(user_file_path, index=False)
-            return True, "Zone concern updated successfully!"
-        else:
-            return False, "The USER NAME.xlsx file must have 'Zone' and 'Name' columns."
-    else:
-        return False, "USER NAME.xlsx file not found in the repository."
-
-# Streamlit Sidebar option for updating zone concern
-if st.sidebar.button("🔧 Update Zone Concern"):
-    user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
-
-    if os.path.exists(user_file_path):
-        user_df = pd.read_excel(user_file_path)
-
-        # Ensure proper column names
-        if "Zone" in user_df.columns and "Name" in user_df.columns:
-            zones = user_df['Zone'].unique()
-
-            # Select a zone to update
-            selected_zone = st.sidebar.selectbox("Select Zone to Update", options=zones)
-
-            if selected_zone:
-                # Get the current name for the selected zone
-                current_name = user_df.loc[user_df['Zone'] == selected_zone, 'Name'].values[0]
-
-                # Display current name and allow editing
-                new_name = st.sidebar.text_input(f"Update Name for {selected_zone}", value=current_name)
-
-                # Button to save the updated name
-                if st.sidebar.button("Save Updated Name"):
-                    success, message = update_zone_user(selected_zone, new_name, user_file_path)
-                    if success:
-                        st.sidebar.success(message)
-                    else:
-                        st.sidebar.error(message)
-        else:
-            st.sidebar.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
-    else:
-        st.sidebar.error("USER NAME.xlsx file not found in the repository.")
     else:
         st.error("USER NAME.xlsx file not found in the repository.")
-
-
-else:
-    st.write("Please upload all required files.")
-
