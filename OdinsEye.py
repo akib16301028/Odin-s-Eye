@@ -203,7 +203,7 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
                 sorted_zone_df = zone_df.sort_values(by='End Time', na_position='first')
                 sorted_zone_df['End Time'] = sorted_zone_df['End Time'].fillna("Not Closed")
                 
-                message = f"Door Open Notification\n\n** ■ {zone}\n\n"
+                message = f"❗Door Open Notification❗\n\n** ■ {zone}\n\n"
                 site_aliases = sorted_zone_df['Site Alias'].unique()
 
                 for site_alias in site_aliases:
