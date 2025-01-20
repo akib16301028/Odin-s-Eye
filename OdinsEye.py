@@ -174,31 +174,29 @@ if site_access_file and rms_file and current_alarms_file:
 
 import os  # For file path operations
 
+import os  # For file path operations
+
 # Streamlit Sidebar
 st.sidebar.title("Options")
 if st.sidebar.button("Notification & Mention Zone Concern"):
-    user_file_path = "/mnt/data/USER NAME.xlsx"
+    user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
     
     if os.path.exists(user_file_path):
-        st.write("USER NAME file found. Processing...")
         user_df = pd.read_excel(user_file_path)
 
+        # Ensure proper column names
         if "Zone" in user_df.columns and "Name" in user_df.columns:
-            # Strip whitespace from Zone and Name columns
-            zone_to_name = user_df.set_index("Zone")["Name"].str.strip().to_dict()
-            filtered_mismatches_df['Zone'] = filtered_mismatches_df['Zone'].str.strip()
-            
-            st.write("Zone-to-Name mapping:", zone_to_name)
+            # Create a mapping of Zone to Name
+            zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
 
+            # Iterate over zones in mismatched data and send notifications
             zones = filtered_mismatches_df['Zone'].unique()
-            st.write("Zones found in mismatches:", zones)
-
             bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-            chat_id = "-4537588687"
+            chat_id = "-1001509039244"
 
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-                message = f"*Door Open Notification*\n\n*{zone}*\n\n"
+                message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
                 site_aliases = zone_df['Site Alias'].unique()
 
                 for site_alias in site_aliases:
@@ -209,31 +207,22 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
                         message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
                     message += "\n"
 
+                # Append mention of the responsible person for the zone
                 if zone in zone_to_name:
-                    message += f"{zone_to_name[zone]}, please take care.\n"
+                    message += f"@{zone_to_name[zone]}, please take care.\n"
 
-                # Escape special characters
-                message = message.replace("_", "\\_").replace("*", "\\*").replace("@", "\\@")
+                # Escape special characters for Telegram Markdown
+                message = message.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("]", "\\]")
 
-                st.write(f"Prepared message for zone {zone}:\n{message}")
-
-                # Send Telegram notification
-                response = requests.post(
-                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
-                    json={
-                        "chat_id": chat_id,
-                        "text": message,
-                        "parse_mode": "Markdown"
-                    }
-                )
-                if response.status_code == 200:
+                if send_telegram_notification(message, bot_token, chat_id):
                     st.success(f"Notification for zone '{zone}' sent successfully!")
                 else:
-                    st.error(f"Failed to send notification for zone '{zone}'. Response: {response.text}")
+                    st.error(f"Failed to send notification for zone '{zone}'.")
         else:
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
     else:
         st.error("USER NAME.xlsx file not found in the repository.")
+
 
 
 
