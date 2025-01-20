@@ -173,7 +173,9 @@ if site_access_file and rms_file and current_alarms_file:
     display_matched_sites(filtered_matched_df)
 
 import os  # For file path operations
-import requests  # For sending HTTP requests
+import pandas as pd
+import requests
+import streamlit as st
 
 # Streamlit Sidebar
 st.sidebar.title("Options")
@@ -191,35 +193,36 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
             # Iterate over zones in mismatched data and send notifications
             zones = filtered_mismatches_df['Zone'].unique()
             bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-            chat_id = "-4537588687"
+            chat_id = "-1001509039244"
 
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-                message = f"Door Open Notification\n\nZone: {zone}\n\n"
-                site_aliases = zone_df['Site Alias'].unique()
+
+                # Sort by 'End Time', putting 'Not Closed' at the top
+                zone_df['End Time'] = zone_df['End Time'].replace("Not Closed", None)
+                sorted_zone_df = zone_df.sort_values(by='End Time', na_position='first')
+                sorted_zone_df['End Time'] = sorted_zone_df['End Time'].fillna("Not Closed")
+                
+                message = f"🚨 Door Open Notification 🚨\n\n**Zone:** {zone}\n\n"
+                site_aliases = sorted_zone_df['Site Alias'].unique()
 
                 for site_alias in site_aliases:
-                    site_df = zone_df[zone_df['Site Alias'] == site_alias]
-
-                    # Sort site_df to ensure rows with 'Not Closed' come first
-                    site_df['End Time'] = site_df['End Time'].replace('Not Closed', None)
-                    site_df['End Time'] = pd.to_datetime(site_df['End Time'], errors='coerce')
-                    site_df = site_df.sort_values(by='End Time', na_position='first').fillna('Not Closed')
-
-                    message += f"{site_alias}\n"
+                    site_df = sorted_zone_df[sorted_zone_df['Site Alias'] == site_alias]
+                    message += f"🔹 {site_alias}\n"
                     for _, row in site_df.iterrows():
-                        end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                        message += f"Start Time: {row['Start Time']} | End Time: {end_time_display}\n"
+                        end_time_display = row['End Time']
+                        message += f"  • Start Time: {row['Start Time']} | End Time: {end_time_display}\n"
                     message += "\n"
 
                 # Append mention of the responsible person for the zone
                 if zone in zone_to_name:
-                    message += f"@{zone_to_name[zone]}, please take care.\n"
+                    message += f"**@{zone_to_name[zone]}**, please take care of this issue.\n"
 
                 # Send the plain-text message
                 payload = {
                     "chat_id": chat_id,
-                    "text": message
+                    "text": message,
+                    "parse_mode": "Markdown"
                 }
                 url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
                 response = requests.post(url, json=payload)
@@ -227,7 +230,7 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
                 if response.status_code == 200:
                     st.success(f"Notification for zone '{zone}' sent successfully!")
                 else:
-                    st.error(f"Failed to send notification for zone '{zone}'. Response: {response.json()}")
+                    st.error(f"Failed to send notification for zone '{zone}'.")
         else:
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
     else:
