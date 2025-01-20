@@ -92,31 +92,37 @@ if "filter_date" not in st.session_state:
 if "status_filter" not in st.session_state:
     st.session_state.status_filter = "All"
 
+# Streamlit Sidebar
+st.sidebar.title("Options")
+
+# Move time filter and SA-Request Valid/Expired options to sidebar
+selected_date = st.sidebar.date_input("Select Date", value=st.session_state.filter_date)
+selected_time = st.sidebar.time_input("Select Time", value=st.session_state.filter_time)
+status_filter = st.sidebar.selectbox("SA-Request Valid/Expired", options=["All", "Valid", "Expired"], index=0)
+
+# Button to clear filters
+if st.sidebar.button("Clear Filters"):
+    st.session_state.filter_date = datetime.now().date()
+    st.session_state.filter_time = datetime.now().time()
+    st.session_state.status_filter = "All"
+
+# Update session state only when the user changes time or date
+if selected_date != st.session_state.filter_date:
+    st.session_state.filter_date = selected_date
+if selected_time != st.session_state.filter_time:
+    st.session_state.filter_time = selected_time
+if status_filter != st.session_state.status_filter:
+    st.session_state.status_filter = status_filter
+
+# Combine selected date and time into a datetime object
+filter_datetime = datetime.combine(st.session_state.filter_date, st.session_state.filter_time)
+
 if site_access_file and rms_file and current_alarms_file:
     site_access_df = pd.read_excel(site_access_file)
     rms_df = pd.read_excel(rms_file, header=2)
     current_alarms_df = pd.read_excel(current_alarms_file, header=2)
 
     merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
-
-    # Filter inputs (date and time)
-    selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
-    selected_time = st.time_input("Select Time", value=st.session_state.filter_time)
-
-    # Button to clear filters
-    if st.button("Clear Filters"):
-        st.session_state.filter_date = datetime.now().date()
-        st.session_state.filter_time = datetime.now().time()
-        st.session_state.status_filter = "All"
-
-    # Update session state only when the user changes time or date
-    if selected_date != st.session_state.filter_date:
-        st.session_state.filter_date = selected_date
-    if selected_time != st.session_state.filter_time:
-        st.session_state.filter_time = selected_time
-
-    # Combine selected date and time into a datetime object
-    filter_datetime = datetime.combine(st.session_state.filter_date, st.session_state.filter_time)
 
     # Process mismatches
     mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
@@ -132,13 +138,6 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Apply filters to matched data
     filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
-
-    # Add the status filter dropdown right before the matched sites table
-    status_filter = st.selectbox("SA-Request Valid/Expired", options=["All", "Valid", "Expired"], index=0)
-
-    # Update session state for status filter
-    if status_filter != st.session_state.status_filter:
-        st.session_state.status_filter = status_filter
 
     # Display mismatches
     if not filtered_mismatches_df.empty:
@@ -169,13 +168,7 @@ def update_zone_user(zone, new_name, user_file_path):
     else:
         return False, "USER NAME.xlsx file not found in the repository."
 
-# Streamlit Sidebar
-st.sidebar.title("Options")
-
 # Update Zone Concern Option
-st.sidebar.markdown("### Update Zone Concern")
-user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
-
 if os.path.exists(user_file_path):
     user_df = pd.read_excel(user_file_path)
 
