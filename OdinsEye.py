@@ -204,7 +204,7 @@ if st.sidebar.button("🗨️Send Telegram Notification"):
                 sorted_zone_df = zone_df.sort_values(by='End Time', na_position='first')
                 sorted_zone_df['End Time'] = sorted_zone_df['End Time'].fillna("Not Closed")
                 
-                message = f"❗Door Open Notification❗\n\n ■ {zone}\n\n"
+                message = f"❗Door Open Notification❗\n\n 🚩 {zone}\n\n"
                 site_aliases = sorted_zone_df['Site Alias'].unique()
 
                 for site_alias in site_aliases:
@@ -217,7 +217,9 @@ if st.sidebar.button("🗨️Send Telegram Notification"):
 
                 # Append mention of the responsible person for the zone
                 if zone in zone_to_name:
-                    message += f"**@{zone_to_name[zone]}**, please take care of this issue.\n"
+                    # Escape underscores in the name
+                    escaped_name = zone_to_name[zone].replace("_", "\\_")
+                    message += f"**@{escaped_name}**, please take care of this issue.\n"
 
                 # Send the plain-text message
                 payload = {
