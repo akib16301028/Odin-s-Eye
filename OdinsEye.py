@@ -210,7 +210,7 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
                     message += f"@{zone_to_name[zone]}, please take care.\n"
 
                 # Escape special characters for Telegram Markdown
-                message = message.replace("_", "\\_").replace(" ", "\\*").replace("[", "\\[").replace("]", "\\]")
+                message = message.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("]", "\\]")
 
                 if send_telegram_notification(message, bot_token, chat_id):
                     st.success(f"Notification for zone '{zone}' sent successfully!")
