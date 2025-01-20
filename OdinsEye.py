@@ -194,25 +194,36 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
 
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-                message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
+                message = f"Door Open Notification\n\nZone: {zone}\n\n"
                 site_aliases = zone_df['Site Alias'].unique()
 
                 for site_alias in site_aliases:
                     site_df = zone_df[zone_df['Site Alias'] == site_alias]
-                    message += f"#{site_alias}\n"
+
+                    # Sort site_df to ensure rows with 'Not Closed' come first
+                    site_df['End Time'] = site_df['End Time'].replace('Not Closed', None)
+                    site_df['End Time'] = pd.to_datetime(site_df['End Time'], errors='coerce')
+                    site_df = site_df.sort_values(by='End Time', na_position='first').fillna('Not Closed')
+
+                    message += f"{site_alias}\n"
                     for _, row in site_df.iterrows():
                         end_time_display = row['End Time'] if row['End Time'] != 'Not Closed' else 'Not Closed'
-                        message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
+                        message += f"Start Time: {row['Start Time']} | End Time: {end_time_display}\n"
                     message += "\n"
 
                 # Append mention of the responsible person for the zone
                 if zone in zone_to_name:
                     message += f"@{zone_to_name[zone]}, please take care.\n"
 
-                # Escape special characters for Telegram Markdown
-                message = message.replace("_", "\\_").replace("*", "\\*").replace("[", "\\[").replace("]", "\\]")
+                # Send the plain-text message
+                payload = {
+                    "chat_id": chat_id,
+                    "text": message
+                }
+                url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                response = requests.post(url, json=payload)
 
-                if send_telegram_notification(message, bot_token, chat_id):
+                if response.status_code == 200:
                     st.success(f"Notification for zone '{zone}' sent successfully!")
                 else:
                     st.error(f"Failed to send notification for zone '{zone}'.")
