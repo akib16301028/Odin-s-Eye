@@ -169,6 +169,7 @@ def update_zone_user(zone, new_name, user_file_path):
     else:
         return False, "USER NAME.xlsx file not found in the repository."
 
+# Streamlit Sidebar
 st.sidebar.title("Options")
 
 # Telegram Notification Option
@@ -183,24 +184,10 @@ if st.sidebar.button("💬 Telegram Notification"):
             # Create a mapping of Zone to Name
             zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
 
-            # Update the zone_to_name mapping after the user modifies the zone's name
-            selected_zone = st.sidebar.selectbox("Select Zone", options=user_df['Zone'].unique())
-            if selected_zone:
-                current_name = user_df.loc[user_df['Zone'] == selected_zone, 'Name'].values[0]
-                new_name = st.sidebar.text_input("Update Name", value=current_name)
-
-                if st.sidebar.button("Update Zone Concern"):
-                    success, message = update_zone_user(selected_zone, new_name, user_file_path)
-                    if success:
-                        st.sidebar.success(message)
-                        zone_to_name[selected_zone] = new_name  # Update the name in the mapping
-                    else:
-                        st.sidebar.error(message)
-
             # Iterate over zones in mismatched data and send notifications
             zones = filtered_mismatches_df['Zone'].unique()
             bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-            chat_id = "-4537588687"
+            chat_id = "-1001509039244"
 
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
