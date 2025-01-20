@@ -169,8 +169,23 @@ def update_zone_user(zone, new_name, user_file_path):
     else:
         return False, "USER NAME.xlsx file not found in the repository."
 
-# Streamlit Sidebar
-st.sidebar.title("Options")
+# Function to update the user name for a specific zone
+def update_zone_user(zone, new_name, user_file_path):
+    if os.path.exists(user_file_path):
+        user_df = pd.read_excel(user_file_path)
+
+        # Ensure proper column names
+        if "Zone" in user_df.columns and "Name" in user_df.columns:
+            # Update the name for the selected zone
+            user_df.loc[user_df['Zone'] == zone, 'Name'] = new_name
+
+            # Save the updated DataFrame back to the file
+            user_df.to_excel(user_file_path, index=False)
+            return True, "Zone concern updated successfully!"
+        else:
+            return False, "The USER NAME.xlsx file must have 'Zone' and 'Name' columns."
+    else:
+        return False, "USER NAME.xlsx file not found in the repository."
 
 # Telegram Notification Option
 if st.sidebar.button("💬 Telegram Notification"):
@@ -231,29 +246,5 @@ if st.sidebar.button("💬 Telegram Notification"):
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
     else:
         st.error("USER NAME.xlsx file not found in the repository.")
-
-# Update Zone Concern Option
-st.sidebar.markdown("### Update Zone Concern")
-user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
-
-if os.path.exists(user_file_path):
-    user_df = pd.read_excel(user_file_path)
-
-    if "Zone" in user_df.columns and "Name" in user_df.columns:
-        zone_list = user_df['Zone'].unique()
-        selected_zone = st.sidebar.selectbox("Select Zone", options=zone_list)
-
-        if selected_zone:
-            current_name = user_df.loc[user_df['Zone'] == selected_zone, 'Name'].values[0]
-            new_name = st.sidebar.text_input("Update Name", value=current_name)
-
-            if st.sidebar.button("Update Zone Concern"):
-                success, message = update_zone_user(selected_zone, new_name, user_file_path)
-                if success:
-                    st.sidebar.success(message)
-                else:
-                    st.sidebar.error(message)
-    else:
-        st.sidebar.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
 else:
     st.sidebar.error("USER NAME.xlsx file not found in the repository.")
