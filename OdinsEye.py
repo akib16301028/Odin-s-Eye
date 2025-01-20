@@ -180,7 +180,7 @@ import streamlit as st
 
 # Streamlit Sidebar
 st.sidebar.title("Options")
-if st.sidebar.button("Send Telegram Notification"):
+if st.sidebar.button("💬 Telegram Notification"):
     user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
     
     if os.path.exists(user_file_path):
