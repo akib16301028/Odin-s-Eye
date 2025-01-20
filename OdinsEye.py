@@ -1,7 +1,8 @@
+import os  # For file path operations
 import pandas as pd
+import requests
 import streamlit as st
 from datetime import datetime
-import requests  # For sending Telegram notifications
 
 # Function to extract the first part of the SiteName before the first underscore
 def extract_site(site_name):
@@ -172,91 +173,17 @@ if site_access_file and rms_file and current_alarms_file:
     # Display matched sites
     display_matched_sites(filtered_matched_df)
 
-import os  # For file path operations
-import pandas as pd
-import requests
-import streamlit as st
+    # User name update feature
+    user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
+    if os.path.exists(user_file_path):
+        user_df = pd.read_excel(user_file_path)
 
-# Streamlit Sidebar
-st.sidebar.title("Options")
-
-# Load user file
-user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
-if os.path.exists(user_file_path):
-    user_df = pd.read_excel(user_file_path)
-
-    # Ensure proper column names
-    if "Zone" in user_df.columns and "Name" in user_df.columns:
-        zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
-
-        # Option: Notification & Mention Zone Concern
-        if st.sidebar.button("Notification & Mention Zone Concern"):
-            # Existing notification logic
-            zones = filtered_mismatches_df['Zone'].unique()
-            bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-            chat_id = "-4537588687"
-
-            for zone in zones:
-                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-
-                # Sort by 'End Time', putting 'Not Closed' at the top
-                zone_df['End Time'] = zone_df['End Time'].replace("Not Closed", None)
-                sorted_zone_df = zone_df.sort_values(by='End Time', na_position='first')
-                sorted_zone_df['End Time'] = sorted_zone_df['End Time'].fillna("Not Closed")
-                
-                message = f"❗Door Open Notification❗\n\n** ■ {zone}\n\n"
-                site_aliases = sorted_zone_df['Site Alias'].unique()
-
-                for site_alias in site_aliases:
-                    site_df = sorted_zone_df[sorted_zone_df['Site Alias'] == site_alias]
-                    message += f"✔ {site_alias}\n"
-                    for _, row in site_df.iterrows():
-                        end_time_display = row['End Time']
-                        message += f"  • Start Time: {row['Start Time']} | End Time: {end_time_display}\n"
-                    message += "\n"
-
-                # Append mention of the responsible person for the zone
-                if zone in zone_to_name:
-                    # Escape underscores in the name
-                    escaped_name = zone_to_name[zone].replace("_", "\\_")
-                    message += f"**@{escaped_name}**, please take care of this issue.\n"
-
-                # Send the plain-text message
-                payload = {
-                    "chat_id": chat_id,
-                    "text": message,
-                    "parse_mode": "Markdown"
-                }
-                url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-                response = requests.post(url, json=payload)
-
-                if response.status_code == 200:
-                    st.success(f"Notification for zone '{zone}' sent successfully!")
-                else:
-                    st.error(f"Failed to send notification for zone '{zone}'.")
-        
-        # New Option: Update Username
-        st.sidebar.markdown("### Update Username")
-        selected_zone = st.sidebar.selectbox("Select Zone", options=user_df["Zone"].unique())
-        
-        # Display default username for the selected zone
-        default_username = zone_to_name.get(selected_zone, "No user assigned")
-        updated_username = st.sidebar.text_input("Edit Username", value=default_username)
-
-        # Save updated username if changed
-        if st.sidebar.button("Save Username"):
-            if updated_username:
-                user_df.loc[user_df["Zone"] == selected_zone, "Name"] = updated_username
-                user_df.to_excel(user_file_path, index=False)
-                st.sidebar.success(f"Username for zone '{selected_zone}' updated to '{updated_username}'!")
-            else:
-                st.sidebar.error("Username cannot be empty!")
-    else:
-        st.sidebar.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
+        # Ensure proper column names
+        if "Zone" in user_df.columns and "Name" in user_df.columns:
+            # List user names by zone
+            for zone in user_df["Zone"].unique():
+                st.markdown(f"### Users for {zone} zone:")
+                user_zone_df = user_df[user_df["Zone"] == zone]
+                st.table(user_zone_df[["Zone", "Name"]])
 else:
-    st.sidebar.error("USER NAME.xlsx file not found in the repository.")
-
-else:
-    st.write("Please upload all required files.")
- 
- 
+    st.error("Please upload all the required files.")
