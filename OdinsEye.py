@@ -177,7 +177,7 @@ import os  # For file path operations
 # Streamlit Sidebar
 st.sidebar.title("Options")
 if st.sidebar.button("Notification & Mention Zone Concern"):
-    user_file_path = "/mnt/data/USER NAME (1).xlsx"
+    user_file_path = "/mnt/data/USER NAME.xlsx"
     
     if os.path.exists(user_file_path):
         user_df = pd.read_excel(user_file_path)
