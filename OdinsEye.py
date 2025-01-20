@@ -256,8 +256,6 @@ if os.path.exists(user_file_path):
 else:
     st.sidebar.error("USER NAME.xlsx file not found in the repository.")
 
-
-
 else:
     st.write("Please upload all required files.")
  
