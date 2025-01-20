@@ -180,7 +180,7 @@ import streamlit as st
 
 # Streamlit Sidebar
 st.sidebar.title("Options")
-if st.sidebar.button("🗨️Send Telegram Notification"):
+if st.sidebar.button("Notification & Mention Zone Concern"):
     user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
     
     if os.path.exists(user_file_path):
@@ -204,7 +204,7 @@ if st.sidebar.button("🗨️Send Telegram Notification"):
                 sorted_zone_df = zone_df.sort_values(by='End Time', na_position='first')
                 sorted_zone_df['End Time'] = sorted_zone_df['End Time'].fillna("Not Closed")
                 
-                message = f"❗Door Open Notification❗\n\n 🚩 {zone}\n\n"
+                message = f"❗Door Open Notification❗\n\n**Zone:** {zone}\n\n"
                 site_aliases = sorted_zone_df['Site Alias'].unique()
 
                 for site_alias in site_aliases:
@@ -239,52 +239,7 @@ if st.sidebar.button("🗨️Send Telegram Notification"):
     else:
         st.error("USER NAME.xlsx file not found in the repository.")
 
-# New option: Update Username
-if st.sidebar.button("Update Username"):
-    user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
-
-    if os.path.exists(user_file_path):
-        user_df = pd.read_excel(user_file_path)
-
-        if "Zone" in user_df.columns and "Name" in user_df.columns:
-            st.write("### Update Username")
-
-            # Display zone dropdown
-            zones = user_df["Zone"].unique()
-            selected_zone = st.selectbox("Select Zone to Update Username", options=zones)
-
-            # Show current username
-            current_name = user_df.loc[user_df["Zone"] == selected_zone, "Name"].values[0]
-            updated_name = st.text_input("Edit Username", value=current_name)
-
-            # Button to save the changes
-            if st.button("Save Changes"):
-                user_df.loc[user_df["Zone"] == selected_zone, "Name"] = updated_name
-                user_df.to_excel(user_file_path, index=False)
-                st.success(f"Username for zone '{selected_zone}' updated successfully!")
-        else:
-            st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
-    else:
-        st.error("USER NAME.xlsx file not found in the repository.")
-
-# Update Zone Concern Option
-if st.sidebar.button("Update Zone Concern"):
-    st.sidebar.markdown("## Update Zone Concern")
-
-    # Dropdown to select zone
-    selected_zone_concern = st.sidebar.selectbox("Select Zone", options=user_df['Zone'].unique())
-
-    # Show current concern and input field to update
-    current_concern = user_df.loc[user_df['Zone'] == selected_zone_concern, 'Concern'].values[0] if 'Concern' in user_df.columns else "Not Specified"
-    new_concern = st.sidebar.text_input("Update Concern", value=current_concern)
-
-    # Update button
-    if st.sidebar.button("Save Concern"):
-        if 'Concern' not in user_df.columns:
-            user_df['Concern'] = "Not Specified"  # Add the column if it doesn't exist
-        user_df.loc[user_df['Zone'] == selected_zone_concern, 'Concern'] = new_concern
-        save_user_data(user_file_path, user_df)
-        st.sidebar.success("Zone concern updated successfully!")
 
 else:
     st.write("Please upload all required files.")
+
