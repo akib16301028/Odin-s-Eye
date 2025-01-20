@@ -184,7 +184,10 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
         user_df = pd.read_excel(user_file_path)
 
         if "Zone" in user_df.columns and "Name" in user_df.columns:
-            zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
+            # Strip whitespace from Zone and Name columns
+            zone_to_name = user_df.set_index("Zone")["Name"].str.strip().to_dict()
+            filtered_mismatches_df['Zone'] = filtered_mismatches_df['Zone'].str.strip()
+            
             st.write("Zone-to-Name mapping:", zone_to_name)
 
             zones = filtered_mismatches_df['Zone'].unique()
@@ -209,13 +212,24 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
                 if zone in zone_to_name:
                     message += f"{zone_to_name[zone]}, please take care.\n"
 
+                # Escape special characters
+                message = message.replace("_", "\\_").replace("*", "\\*").replace("@", "\\@")
+
                 st.write(f"Prepared message for zone {zone}:\n{message}")
 
-                success = send_telegram_notification(message, bot_token, chat_id)
-                if success:
+                # Send Telegram notification
+                response = requests.post(
+                    f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                    json={
+                        "chat_id": chat_id,
+                        "text": message,
+                        "parse_mode": "Markdown"
+                    }
+                )
+                if response.status_code == 200:
                     st.success(f"Notification for zone '{zone}' sent successfully!")
                 else:
-                    st.error(f"Failed to send notification for zone '{zone}'.")
+                    st.error(f"Failed to send notification for zone '{zone}'. Response: {response.text}")
         else:
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
     else:
