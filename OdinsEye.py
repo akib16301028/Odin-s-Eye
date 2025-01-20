@@ -177,7 +177,7 @@ import os  # For file path operations
 # Streamlit Sidebar
 st.sidebar.title("Options")
 if st.sidebar.button("Notification & Mention Zone Concern"):
-    user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
+    user_file_path = "/mnt/data/USER NAME (1).xlsx"
     
     if os.path.exists(user_file_path):
         user_df = pd.read_excel(user_file_path)
@@ -207,7 +207,8 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
 
                 # Append mention of the responsible person for the zone
                 if zone in zone_to_name:
-                    message += f"@{zone_to_name[zone]}, please take care.\n"
+                    # Use the raw name from the file without altering underscores
+                    message += f"{zone_to_name[zone]}, please take care.\n"
 
                 if send_telegram_notification(message, bot_token, chat_id):
                     st.success(f"Notification for zone '{zone}' sent successfully!")
@@ -217,6 +218,7 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
     else:
         st.error("USER NAME.xlsx file not found in the repository.")
+
 
 
 
