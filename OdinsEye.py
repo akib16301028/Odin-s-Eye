@@ -180,21 +180,22 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
     user_file_path = "/mnt/data/USER NAME.xlsx"
     
     if os.path.exists(user_file_path):
+        st.write("USER NAME file found. Processing...")
         user_df = pd.read_excel(user_file_path)
 
-        # Ensure proper column names
         if "Zone" in user_df.columns and "Name" in user_df.columns:
-            # Create a mapping of Zone to Name
             zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
+            st.write("Zone-to-Name mapping:", zone_to_name)
 
-            # Iterate over zones in mismatched data and send notifications
             zones = filtered_mismatches_df['Zone'].unique()
+            st.write("Zones found in mismatches:", zones)
+
             bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
             chat_id = "-4537588687"
 
             for zone in zones:
                 zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-                message = f"*Door Open Notification*\n\n*{zone}*\n\n"  # Bold "Door Open Notification"
+                message = f"*Door Open Notification*\n\n*{zone}*\n\n"
                 site_aliases = zone_df['Site Alias'].unique()
 
                 for site_alias in site_aliases:
@@ -205,12 +206,13 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
                         message += f"Start Time: {row['Start Time']} End Time: {end_time_display}\n"
                     message += "\n"
 
-                # Append mention of the responsible person for the zone
                 if zone in zone_to_name:
-                    # Use the raw name from the file without altering underscores
                     message += f"{zone_to_name[zone]}, please take care.\n"
 
-                if send_telegram_notification(message, bot_token, chat_id):
+                st.write(f"Prepared message for zone {zone}:\n{message}")
+
+                success = send_telegram_notification(message, bot_token, chat_id)
+                if success:
                     st.success(f"Notification for zone '{zone}' sent successfully!")
                 else:
                     st.error(f"Failed to send notification for zone '{zone}'.")
@@ -218,7 +220,6 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
     else:
         st.error("USER NAME.xlsx file not found in the repository.")
-
 
 
 
