@@ -216,7 +216,9 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
 
                 # Append mention of the responsible person for the zone
                 if zone in zone_to_name:
-                    message += f"**@{zone_to_name[zone]}**, please take care of this issue.\n"
+                    # Escape underscores in the name
+                    escaped_name = zone_to_name[zone].replace("_", "\\_")
+                    message += f"**@{escaped_name}**, please take care of this issue.\n"
 
                 # Send the plain-text message
                 payload = {
@@ -235,6 +237,7 @@ if st.sidebar.button("Notification & Mention Zone Concern"):
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
     else:
         st.error("USER NAME.xlsx file not found in the repository.")
+
 
 
 
