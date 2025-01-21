@@ -81,9 +81,9 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('🛡️IntrusionShield🛡️')
 
-site_access_file = st.file_uploader("Upload the Site Access Excel", type=["xlsx"])
-rms_file = st.file_uploader("Upload the RMS Excel", type=["xlsx"])
-current_alarms_file = st.file_uploader("Upload the Current Alarms Excel", type=["xlsx"])
+site_access_file = st.file_uploader("Upload the Site Access Data", type=["xlsx"])
+rms_file = st.file_uploader("Upload the All Door Open Alarms Data till now", type=["xlsx"])
+current_alarms_file = st.file_uploader("Upload the Current Door Open Alarms Data", type=["xlsx"])
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
