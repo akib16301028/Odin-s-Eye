@@ -187,7 +187,7 @@ if os.path.exists(user_file_path):
             current_name = user_df.loc[user_df['Zone'] == selected_zone, 'Name'].values[0]
             new_name = st.sidebar.text_input("Update Name", value=current_name)
 
-            if st.sidebar.button("🔄Update Zone Concern"):
+            if st.sidebar.button("🔄Update"):
                 success, message = update_zone_user(selected_zone, new_name, user_file_path)
                 if success:
                     st.sidebar.success(message)
@@ -199,7 +199,7 @@ else:
     st.sidebar.error("USER NAME.xlsx file not found in the repository.")
 
 # Telegram Notification Option
-if st.sidebar.button("💬 Send Telegram Notification"):
+if st.sidebar.button("💬 Send Notification"):
     # Ensure user has updated zone names before sending notifications
     if os.path.exists(user_file_path):
         user_df = pd.read_excel(user_file_path)
