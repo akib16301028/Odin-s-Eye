@@ -201,25 +201,50 @@ else:
 from io import BytesIO  # Ensure this is imported at the top of your script
 
 # Function to convert a DataFrame to an Excel file
+from io import BytesIO
+from datetime import datetime
+
+# Function to convert a DataFrame to an Excel file with only specified columns
 @st.cache_data
 def convert_df_to_excel(df):
+    # Select only the required columns
+    filtered_df = df[['Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']]
+
+    # Create an Excel file in memory
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Unmatched Data')
+        # Write the filtered DataFrame to Excel with a table format
+        filtered_df.to_excel(writer, index=False, sheet_name='Unmatched Data')
+        workbook = writer.book
+        worksheet = writer.sheets['Unmatched Data']
+        # Apply table style
+        table_range = f'A1:E{len(filtered_df) + 1}'  # Adjust range to include headers and data
+        worksheet.add_table(table_range, {
+            'columns': [{'header': col} for col in filtered_df.columns],
+            'style': 'Table Style Medium 9',
+        })
     processed_data = output.getvalue()
     return processed_data
 
 # Check if there is unmatched data and provide a download option in the sidebar
 if not mismatches_df.empty:
+    # Generate the file name with current timestamp
+    timestamp = datetime.now().strftime("%d%m%y%H%M%S")
+    file_name = f"UnauthorizedAccess_{timestamp}.xlsx"
+
+    # Generate the Excel data
     excel_data = convert_df_to_excel(mismatches_df)
+
+    # Add a download button in the sidebar
     st.sidebar.download_button(
-        label="📥 Download Unmatched Data",
+        label="📥 Download Unauthorized Access Data",
         data=excel_data,
-        file_name="Unmatched_Data.xlsx",
+        file_name=file_name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 else:
     st.sidebar.write("No unmatched data available for download.")
+
 
 
 # Telegram Notification Option
