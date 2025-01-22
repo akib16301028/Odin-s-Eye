@@ -187,7 +187,7 @@ if os.path.exists(user_file_path):
             current_name = user_df.loc[user_df['Zone'] == selected_zone, 'Name'].values[0]
             new_name = st.sidebar.text_input("Update Name", value=current_name)
 
-            if st.sidebar.button("🔄Update"):
+            if st.sidebar.button("🔄Update User"):
                 success, message = update_zone_user(selected_zone, new_name, user_file_path)
                 if success:
                     st.sidebar.success(message)
