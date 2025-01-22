@@ -198,26 +198,28 @@ if os.path.exists(user_file_path):
 else:
     st.sidebar.error("USER NAME.xlsx file not found in the repository.")
     # Download unmatched data as Excel
+from io import BytesIO  # Ensure this is imported at the top of your script
+
+# Function to convert a DataFrame to an Excel file
+@st.cache_data
+def convert_df_to_excel(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Unmatched Data')
+    processed_data = output.getvalue()
+    return processed_data
+
+# Check if there is unmatched data and provide a download option in the sidebar
 if not mismatches_df.empty:
-    # Create a button to download the unmatched data
-    @st.cache_data
-    def convert_df_to_excel(df):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Unmatched Data')
-        processed_data = output.getvalue()
-        return processed_data
-
     excel_data = convert_df_to_excel(mismatches_df)
-
-    st.download_button(
+    st.sidebar.download_button(
         label="📥 Download Unmatched Data",
         data=excel_data,
         file_name="Unmatched_Data.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 else:
-    st.write("No unmatched data available for download.")
+    st.sidebar.write("No unmatched data available for download.")
 
 
 # Telegram Notification Option
