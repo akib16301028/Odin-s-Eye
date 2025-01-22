@@ -197,6 +197,28 @@ if os.path.exists(user_file_path):
         st.sidebar.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
 else:
     st.sidebar.error("USER NAME.xlsx file not found in the repository.")
+    # Download unmatched data as Excel
+if not mismatches_df.empty:
+    # Create a button to download the unmatched data
+    @st.cache_data
+    def convert_df_to_excel(df):
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Unmatched Data')
+        processed_data = output.getvalue()
+        return processed_data
+
+    excel_data = convert_df_to_excel(mismatches_df)
+
+    st.download_button(
+        label="📥 Download Unmatched Data",
+        data=excel_data,
+        file_name="Unmatched_Data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+else:
+    st.write("No unmatched data available for download.")
+
 
 # Telegram Notification Option
 if st.sidebar.button("💬 Send Notification"):
@@ -237,7 +259,7 @@ if st.sidebar.button("💬 Send Notification"):
                 if zone in zone_to_name:
                     # Escape underscores in the name
                     escaped_name = zone_to_name[zone].replace("_", "\\_")
-                    message += f"**@{escaped_name}**, no site access request found for this door open alarms. Please share take care and share us update.\n"
+                    message += f"**@{escaped_name}**, no site access request found for this door open alarms. Please take care and share us update.\n"
 
                 # Send the plain-text message
                 payload = {
@@ -254,27 +276,5 @@ if st.sidebar.button("💬 Send Notification"):
                     st.error(f"Failed to send notification for zone '{zone}'.")
         else:
             st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
-
-    # Download unmatched data as Excel
-if not mismatches_df.empty:
-    # Create a button to download the unmatched data
-    @st.cache_data
-    def convert_df_to_excel(df):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Unmatched Data')
-        processed_data = output.getvalue()
-        return processed_data
-
-    excel_data = convert_df_to_excel(mismatches_df)
-
-    st.download_button(
-        label="📥 Download Unmatched Data",
-        data=excel_data,
-        file_name="Unmatched_Data.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-else:
-    st.write("No unmatched data available for download.")
     else:
         st.error("USER NAME.xlsx file not found in the repository.")
