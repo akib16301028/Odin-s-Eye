@@ -197,14 +197,13 @@ if os.path.exists(user_file_path):
         st.sidebar.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
 else:
     st.sidebar.error("USER NAME.xlsx file not found in the repository.")
-    # Download unmatched data as Excel
-from io import BytesIO  # Ensure this is imported at the top of your script
 
-# Function to convert a DataFrame to an Excel file
+#Download Option
+
 from io import BytesIO
 from datetime import datetime
 
-# Function to convert a DataFrame to an Excel file with only specified columns
+# Function to convert a DataFrame to an Excel file with adjusted column widths
 @st.cache_data
 def convert_df_to_excel(df):
     # Select only the required columns
@@ -213,16 +212,28 @@ def convert_df_to_excel(df):
     # Create an Excel file in memory
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # Write the filtered DataFrame to Excel with a table format
+        # Write the filtered DataFrame to Excel
         filtered_df.to_excel(writer, index=False, sheet_name='Unmatched Data')
+
+        # Access the workbook and worksheet
         workbook = writer.book
         worksheet = writer.sheets['Unmatched Data']
+
+        # Adjust column widths to fit content
+        for i, column in enumerate(filtered_df.columns):
+            max_len = max(
+                filtered_df[column].astype(str).map(len).max(),  # Max length of the column
+                len(column)  # Length of the column header
+            ) + 2  # Add extra padding
+            worksheet.set_column(i, i, max_len)
+
         # Apply table style
         table_range = f'A1:E{len(filtered_df) + 1}'  # Adjust range to include headers and data
         worksheet.add_table(table_range, {
             'columns': [{'header': col} for col in filtered_df.columns],
             'style': 'Table Style Medium 9',
         })
+
     processed_data = output.getvalue()
     return processed_data
 
@@ -244,8 +255,6 @@ if not mismatches_df.empty:
     )
 else:
     st.sidebar.write("No unmatched data available for download.")
-
-
 
 # Telegram Notification Option
 if st.sidebar.button("💬 Send Notification"):
