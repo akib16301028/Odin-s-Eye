@@ -203,48 +203,60 @@ else:
 from io import BytesIO
 from datetime import datetime
 
-# Function to convert a DataFrame to an Excel file with adjusted column widths
+# Function to convert dataframes into an Excel file with multiple sheets
 @st.cache_data
-def convert_df_to_excel(df):
-    # Select only the required columns
-    filtered_df = df[['Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']]
+def convert_df_to_excel_with_sheets(unmatched_df, rms_df, current_alarms_df, site_access_df):
+    # Filter unmatched data to show only the required columns
+    filtered_unmatched_df = unmatched_df[['Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']]
 
     # Create an Excel file in memory
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # Write the filtered DataFrame to Excel
-        filtered_df.to_excel(writer, index=False, sheet_name='Unmatched Data')
+        # Add unmatched data sheet
+        filtered_unmatched_df.to_excel(writer, index=False, sheet_name='Unmatched Data')
+        
+        # Add raw RMS Data sheet
+        rms_df.to_excel(writer, index=False, sheet_name='RMS Data')
 
-        # Access the workbook and worksheet
+        # Add raw Current Alarms sheet
+        current_alarms_df.to_excel(writer, index=False, sheet_name='Current Alarms')
+
+        # Add raw Site Access Data sheet
+        site_access_df.to_excel(writer, index=False, sheet_name='Site Access Data')
+
+        # Access the workbook for formatting
         workbook = writer.book
-        worksheet = writer.sheets['Unmatched Data']
 
-        # Adjust column widths to fit content
-        for i, column in enumerate(filtered_df.columns):
-            max_len = max(
-                filtered_df[column].astype(str).map(len).max(),  # Max length of the column
-                len(column)  # Length of the column header
-            ) + 2  # Add extra padding
-            worksheet.set_column(i, i, max_len)
+        # Format each sheet with auto-adjusted column widths and table style
+        for sheet_name, df in [
+            ('Unmatched Data', filtered_unmatched_df),
+            ('RMS Data', rms_df),
+            ('Current Alarms', current_alarms_df),
+            ('Site Access Data', site_access_df)
+        ]:
+            worksheet = writer.sheets[sheet_name]
+            for i, column in enumerate(df.columns):
+                max_len = max(df[column].astype(str).map(len).max(), len(column)) + 2
+                worksheet.set_column(i, i, max_len)
 
-        # Apply table style
-        table_range = f'A1:E{len(filtered_df) + 1}'  # Adjust range to include headers and data
-        worksheet.add_table(table_range, {
-            'columns': [{'header': col} for col in filtered_df.columns],
-            'style': 'Table Style Medium 9',
-        })
+            # Apply table formatting if this is the Unmatched Data sheet
+            if sheet_name == 'Unmatched Data':
+                table_range = f'A1:E{len(filtered_unmatched_df) + 1}'  # Adjust range for headers and data
+                worksheet.add_table(table_range, {
+                    'columns': [{'header': col} for col in filtered_unmatched_df.columns],
+                    'style': 'Table Style Medium 9',
+                })
 
-    processed_data = output.getvalue()
-    return processed_data
+    return output.getvalue()
 
-# Check if there is unmatched data and provide a download option in the sidebar
-if not mismatches_df.empty:
+# Generate the Excel file only if there is data
+if site_access_file and rms_file and current_alarms_file:
     # Generate the file name with current timestamp
     timestamp = datetime.now().strftime("%d%m%y%H%M%S")
     file_name = f"UnauthorizedAccess_{timestamp}.xlsx"
 
-    # Generate the Excel data
-    excel_data = convert_df_to_excel(mismatches_df)
+    # Generate the Excel data with all sheets
+    excel_data = convert_df_to_excel_with_sheets(mismatches_df, rms_df, current_alarms_df, site_access_df)
 
     # Add a download button in the sidebar
     st.sidebar.download_button(
@@ -254,7 +266,8 @@ if not mismatches_df.empty:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 else:
-    st.sidebar.write("No unmatched data available for download.")
+    st.sidebar.write("Please upload all required files to enable data download.")
+
 
 # Telegram Notification Option
 if st.sidebar.button("💬 Send Notification"):
