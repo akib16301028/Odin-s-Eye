@@ -151,6 +151,24 @@ if site_access_file and rms_file and current_alarms_file:
     # Display matched sites
     display_matched_sites(filtered_matched_df)
 
+    # Add download button for unmatched data
+    if not mismatches_df.empty:
+        @st.cache_data
+        def convert_df_to_excel(df):
+            from io import BytesIO
+
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Unmatched Data')
+            return output.getvalue()
+
+        st.download_button(
+            label="📥 Download Unmatched Data",
+            data=convert_df_to_excel(mismatches_df),
+            file_name="Unmatched_Data.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
 # Function to update the user name for a specific zone
 def update_zone_user(zone, new_name, user_file_path):
     if os.path.exists(user_file_path):
@@ -237,7 +255,7 @@ if st.sidebar.button("💬 Send Notification"):
                 if zone in zone_to_name:
                     # Escape underscores in the name
                     escaped_name = zone_to_name[zone].replace("_", "\\_")
-                    message += f"**@{escaped_name}**, no site access request found for this door open alarms. Please share take care and share us update.\n"
+                    message += f"**@{escaped_name}**, no site access request found for this door open alarms. Please take care and share us update.\n"
 
                 # Send the plain-text message
                 payload = {
