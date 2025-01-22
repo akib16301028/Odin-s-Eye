@@ -260,7 +260,7 @@ if site_access_file and rms_file and current_alarms_file:
 
     # Add a download button in the sidebar
     st.sidebar.download_button(
-        label="📂 Download Data",
+        label="💾 Download Data",
         data=excel_data,
         file_name=file_name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
