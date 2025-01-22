@@ -151,24 +151,6 @@ if site_access_file and rms_file and current_alarms_file:
     # Display matched sites
     display_matched_sites(filtered_matched_df)
 
-    # Add download button for unmatched data
-    if not mismatches_df.empty:
-        @st.cache_data
-        def convert_df_to_excel(df):
-            from io import BytesIO
-
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, index=False, sheet_name='Unmatched Data')
-            return output.getvalue()
-
-        st.download_button(
-            label="📥 Download Unmatched Data",
-            data=convert_df_to_excel(mismatches_df),
-            file_name="Unmatched_Data.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-
 # Function to update the user name for a specific zone
 def update_zone_user(zone, new_name, user_file_path):
     if os.path.exists(user_file_path):
