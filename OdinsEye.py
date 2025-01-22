@@ -248,7 +248,7 @@ if not mismatches_df.empty:
 
     # Add a download button in the sidebar
     st.sidebar.download_button(
-        label="📥 Download Unauthorized Access Data",
+        label="📂 Download Data",
         data=excel_data,
         file_name=file_name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
