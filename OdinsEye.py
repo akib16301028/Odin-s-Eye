@@ -308,7 +308,7 @@ if st.sidebar.button("💬 Send Notification"):
                 if zone in zone_to_name:
                     # Escape underscores in the name
                     escaped_name = zone_to_name[zone].replace("_", "\\_")
-                    message += f"**@{escaped_name}**, no Site Access Request found for these Door Open alarms. Please take care and share us update.\n"
+                    message += f"**@{escaped_name}**, no Site Access Request found for these Door Open alarms. Please take care and share update.\n"
 
                 # Send the plain-text message
                 payload = {
