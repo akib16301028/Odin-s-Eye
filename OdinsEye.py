@@ -1,329 +1,257 @@
-import pandas as pd
 import streamlit as st
-from datetime import datetime
-import requests  # For sending Telegram notifications
-import os  # For file path operations
+import pandas as pd
+from decimal import Decimal, ROUND_HALF_UP
+import os
 
-# Function to extract the first part of the SiteName before the first underscore
-def extract_site(site_name):
-    return site_name.split('_')[0] if pd.notnull(site_name) and '_' in site_name else site_name
+# Set the title of the application
+st.title("Tenant-Wise Data Processing Application")
 
-# Function to merge RMS and Current Alarms data
-def merge_rms_alarms(rms_df, alarms_df):
-    alarms_df['Start Time'] = alarms_df['Alarm Time']
-    alarms_df['End Time'] = pd.NaT  # No End Time in Current Alarms, set to NaT
+# Sidebar for uploading files
+st.sidebar.header("Upload Required Excel Files")
 
-    rms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
-    alarms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
+# Checkbox to show MTA Site List
+show_mta_checkbox = st.sidebar.checkbox("Show MTA Site List")
 
-    merged_df = pd.concat([rms_df[rms_columns], alarms_df[alarms_columns]], ignore_index=True)
-    return merged_df
+if show_mta_checkbox:
+    try:
+        mta_file_path = os.path.join(os.getcwd(), "MTA Site List.xlsx")
+        df_mta_site_list = pd.read_excel(mta_file_path, skiprows=0)
+        st.subheader("MTA Site List")
+        st.dataframe(df_mta_site_list)
+    except Exception as e:
+        st.error(f"Error loading MTA Site List: {e}")
 
-# Function to find mismatches between Site Access and merged RMS/Alarms dataset
-def find_mismatches(site_access_df, merged_df):
-    site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
-    merged_comparison_df = pd.merge(merged_df, site_access_df, left_on='Site', right_on='SiteName_Extracted', how='left', indicator=True)
-    mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
-    mismatches_df['End Time'] = mismatches_df['End Time'].fillna('Not Closed')  # Replace NaT with Not Closed
-    return mismatches_df
-
-# Function to find matched sites and their status
-def find_matched_sites(site_access_df, merged_df):
-    site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
-    matched_df = pd.merge(site_access_df, merged_df, left_on='SiteName_Extracted', right_on='Site', how='inner')
-    matched_df['StartDate'] = pd.to_datetime(matched_df['StartDate'], errors='coerce')
-    matched_df['EndDate'] = pd.to_datetime(matched_df['EndDate'], errors='coerce')
-    matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
-    matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
-    matched_df['Status'] = matched_df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
-    return matched_df
-
-# Function to display grouped data by Cluster and Zone in a table
-def display_grouped_data(grouped_df, title):
-    st.write(title)
-    clusters = grouped_df['Cluster'].unique()
-
-    for cluster in clusters:
-        st.markdown(f"**{cluster}**")
-        cluster_df = grouped_df[grouped_df['Cluster'] == cluster]
-        zones = cluster_df['Zone'].unique()
-
-        for zone in zones:
-            st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)
-            zone_df = cluster_df[cluster_df['Zone'] == zone]
-            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
-            display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
-            display_df = display_df.fillna('')
-            st.table(display_df)
-        st.markdown("---")
-
-# Function to display matched sites with status
-def display_matched_sites(matched_df):
-    color_map = {'Valid': 'background-color: lightgreen;', 'Expired': 'background-color: lightcoral;'}
-    def highlight_status(status):
-        return color_map.get(status, '')
-
-    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
-    st.write("Matched Sites with Status:")
-    st.dataframe(styled_df)
-
-# Function to send Telegram notification
-def send_telegram_notification(message, bot_token, chat_id):
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"  # Use Markdown for plain text
+# Function to standardize tenant names
+def standardize_tenant(tenant_name):
+    tenant_mapping = {
+        "BANJO": "Banjo",
+        "BL": "Banglalink",
+        "GP": "Grameenphone",
+        "ROBI": "Robi",
     }
-    response = requests.post(url, json=payload)
-    return response.status_code == 200
+    return tenant_mapping.get(tenant_name, tenant_name)
 
-# Streamlit app
-st.title('🛡️IntrusionShield🛡️')
+# Function to extract tenant from Site Alias
+def extract_tenant(site_alias):
+    if isinstance(site_alias, str):
+        brackets = site_alias.split("(")
+        tenants = [part.split(")")[0].strip() for part in brackets if ")" in part]
+        for tenant in tenants:
+            if "BANJO" in tenant:
+                return "Banjo"
+        return tenants[0] if tenants else "Unknown"
+    return "Unknown"
 
-site_access_file = st.file_uploader("Upload the Site Access Data", type=["xlsx"])
-rms_file = st.file_uploader("Upload the All Door Open Alarms Data till now", type=["xlsx"])
-current_alarms_file = st.file_uploader("Upload the Current Door Open Alarms Data", type=["xlsx"])
+# Function to convert elapsed time to decimal hours
+def convert_to_decimal_hours(elapsed_time):
+    if pd.notnull(elapsed_time):
+        total_seconds = elapsed_time.total_seconds()
+        decimal_hours = total_seconds / 3600
+        return Decimal(decimal_hours).quantize(Decimal('0.00'), rounding=ROUND_HALF_UP)
+    return Decimal(0.0)
 
-if "filter_time" not in st.session_state:
-    st.session_state.filter_time = datetime.now().time()
-if "filter_date" not in st.session_state:
-    st.session_state.filter_date = datetime.now().date()
-if "status_filter" not in st.session_state:
-    st.session_state.status_filter = "All"
+# Step 1: Upload RMS Site List
+rms_site_file = st.sidebar.file_uploader("1. RMS Site List", type=["xlsx", "xls"])
+if rms_site_file:
+    st.success("RMS Site List uploaded successfully!")
 
-if site_access_file and rms_file and current_alarms_file:
-    site_access_df = pd.read_excel(site_access_file)
-    rms_df = pd.read_excel(rms_file, header=2)
-    current_alarms_df = pd.read_excel(current_alarms_file, header=2)
+    try:
+        # Read RMS Site List starting from row 3
+        df_rms_site = pd.read_excel(rms_site_file, skiprows=2)
 
-    merged_rms_alarms_df = merge_rms_alarms(rms_df, current_alarms_df)
+        # Filter out sites starting with 'L'
+        df_rms_filtered = df_rms_site[~df_rms_site["Site"].str.startswith("L", na=False)]
 
-    # Filter inputs (date and time)
-    selected_date = st.date_input("Select Date", value=st.session_state.filter_date)
-    selected_time = st.time_input("Select Time", value=st.session_state.filter_time)
+        # Add Tenant column
+        df_rms_filtered["Tenant"] = df_rms_filtered["Site Alias"].apply(extract_tenant)
 
-    # Button to clear filters
-    if st.button("Clear Filters"):
-        st.session_state.filter_date = datetime.now().date()
-        st.session_state.filter_time = datetime.now().time()
-        st.session_state.status_filter = "All"
+        # Standardize tenant names
+        df_rms_filtered["Tenant"] = df_rms_filtered["Tenant"].apply(standardize_tenant)
 
-    # Update session state only when the user changes time or date
-    if selected_date != st.session_state.filter_date:
-        st.session_state.filter_date = selected_date
-    if selected_time != st.session_state.filter_time:
-        st.session_state.filter_time = selected_time
+        # Group tenant data by Cluster and Zone
+        tenant_zone_rms = {}
+        for tenant in df_rms_filtered["Tenant"].unique():
+            tenant_df = df_rms_filtered[df_rms_filtered["Tenant"] == tenant]
+            grouped_df = tenant_df.groupby(["Cluster", "Zone"]).size().reset_index(name="Total Site Count")
+            grouped_df = grouped_df.sort_values(by=["Cluster", "Zone"])
+            tenant_zone_rms[tenant] = grouped_df
 
-    # Combine selected date and time into a datetime object
-    filter_datetime = datetime.combine(st.session_state.filter_date, st.session_state.filter_time)
+    except Exception as e:
+        st.error(f"Error processing RMS Site List: {e}")
 
-    # Process mismatches
-    mismatches_df = find_mismatches(site_access_df, merged_rms_alarms_df)
-    mismatches_df['Start Time'] = pd.to_datetime(mismatches_df['Start Time'], errors='coerce')
-    filtered_mismatches_df = mismatches_df[mismatches_df['Start Time'] > filter_datetime]
+# Step 2: Upload Yesterday Alarm History
+alarm_history_file = st.sidebar.file_uploader("2. Yesterday Alarm History", type=["xlsx", "xls"])
+if alarm_history_file:
+    st.success("Yesterday Alarm History uploaded successfully!")
 
-    # Process matches
-    matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
+    try:
+        df_alarm_history = pd.read_excel(alarm_history_file, skiprows=2)
+        df_alarm_history = df_alarm_history[~df_alarm_history["Site"].str.startswith("L", na=False)]
+        df_alarm_history["Tenant"] = df_alarm_history["Tenant"].apply(standardize_tenant)
 
-    # Apply filtering conditions
-    status_filter_condition = matched_df['Status'] == st.session_state.status_filter if st.session_state.status_filter != "All" else True
-    time_filter_condition = (matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)
+        tenant_merged_data = {}
+        merged_all_tenants = pd.DataFrame()
 
-    # Apply filters to matched data
-    filtered_matched_df = matched_df[status_filter_condition & time_filter_condition]
+        for tenant in df_alarm_history["Tenant"].unique():
+            rms_data = tenant_zone_rms.get(tenant, pd.DataFrame())
+            alarm_data = df_alarm_history[df_alarm_history["Tenant"] == tenant]
 
-    # Add the status filter dropdown right before the matched sites table
-    status_filter = st.selectbox("SA-Request Valid/Expired", options=["All", "Valid", "Expired"], index=0)
+            grouped_alarm_data = alarm_data.groupby(["Cluster", "Zone"]).size().reset_index(name="Total Affected Site")
+            alarm_data["Elapsed Time"] = pd.to_timedelta(alarm_data["Elapsed Time"], errors="coerce")
+            elapsed_time_sum = alarm_data.groupby(["Cluster", "Zone"])["Elapsed Time"].sum().reset_index()
+            elapsed_time_sum["Elapsed Time (Decimal)"] = elapsed_time_sum["Elapsed Time"].apply(convert_to_decimal_hours)
 
-    # Update session state for status filter
-    if status_filter != st.session_state.status_filter:
-        st.session_state.status_filter = status_filter
+            merged_data = pd.merge(rms_data, grouped_alarm_data, on=["Cluster", "Zone"], how="left")
+            merged_data = pd.merge(merged_data, elapsed_time_sum[["Cluster", "Zone", "Elapsed Time (Decimal)"]], on=["Cluster", "Zone"], how="left")
 
-    # Display mismatches
-    if not filtered_mismatches_df.empty:
-        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
-    else:
-        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-        display_grouped_data(mismatches_df, "All Mismatched Sites")
+            merged_data["Total Affected Site"] = merged_data["Total Affected Site"].fillna(0)
+            merged_data["Elapsed Time (Decimal)"] = merged_data["Elapsed Time (Decimal)"].fillna(Decimal(0.0))
 
-    # Display matched sites
-    display_matched_sites(filtered_matched_df)
+            tenant_merged_data[tenant] = merged_data
+            merged_all_tenants = pd.concat([merged_all_tenants, merged_data])
 
-# Function to update the user name for a specific zone
-def update_zone_user(zone, new_name, user_file_path):
-    if os.path.exists(user_file_path):
-        user_df = pd.read_excel(user_file_path)
+    except Exception as e:
+        st.error(f"Error processing Yesterday Alarm History: {e}")
 
-        # Ensure proper column names
-        if "Zone" in user_df.columns and "Name" in user_df.columns:
-            # Update the name for the selected zone
-            user_df.loc[user_df['Zone'] == zone, 'Name'] = new_name
+# Step 3: Upload Grid Data
+grid_data_file = st.sidebar.file_uploader("3. Grid Data", type=["xlsx", "xls"])
+if grid_data_file:
+    st.success("Grid Data uploaded successfully!")
 
-            # Save the updated DataFrame back to the file
-            user_df.to_excel(user_file_path, index=False)
-            return True, "Zone concern updated successfully!"
+    try:
+        df_grid_data = pd.read_excel(grid_data_file, sheet_name="Site Wise Summary", skiprows=2)
+        df_grid_data = df_grid_data[~df_grid_data["Site"].str.startswith("L", na=False)]
+
+        df_grid_data = df_grid_data[["Cluster", "Zone", "Tenant Name", "AC Availability (%)"]]
+        df_grid_data["Tenant Name"] = df_grid_data["Tenant Name"].apply(standardize_tenant)
+
+        tenant_zone_grid = {}
+        for tenant in df_grid_data["Tenant Name"].unique():
+            tenant_df = df_grid_data[df_grid_data["Tenant Name"] == tenant]
+            grouped_grid = tenant_df.groupby(["Cluster", "Zone"])["AC Availability (%)"].mean().reset_index()
+            tenant_zone_grid[tenant] = grouped_grid
+
+    except Exception as e:
+        st.error(f"Error processing Grid Data: {e}")
+
+# Step 4: Upload Total Elapse Till Date
+total_elapse_file = st.sidebar.file_uploader("4. Total Elapse Till Date", type=["xlsx", "xls", "csv"])
+if total_elapse_file:
+    st.success("Total Elapse Till Date uploaded successfully!")
+
+    try:
+        if total_elapse_file.name.endswith(".csv"):
+            df_total_elapse = pd.read_csv(total_elapse_file)
         else:
-            return False, "The USER NAME.xlsx file must have 'Zone' and 'Name' columns."
-    else:
-        return False, "USER NAME.xlsx file not found in the repository."
+            df_total_elapse = pd.read_excel(total_elapse_file, skiprows=0)
 
-# Streamlit Sidebar
-st.sidebar.title("Options")
+        df_total_elapse = df_total_elapse[~df_total_elapse["Site"].str.startswith("L", na=False)]
+        df_total_elapse["Tenant"] = df_total_elapse["Tenant"].apply(standardize_tenant)
+        df_total_elapse["Elapsed Time"] = pd.to_timedelta(df_total_elapse["Elapsed Time"], errors="coerce")
 
-# Update Zone Concern Option
-st.sidebar.markdown("### Update Zone Concern")
-user_file_path = os.path.join(os.path.dirname(__file__), "USER NAME.xlsx")
+        tenant_total_elapsed = {}
+        for tenant in df_total_elapse["Tenant"].unique():
+            tenant_df = df_total_elapse[df_total_elapse["Tenant"] == tenant]
+            grouped_elapsed = tenant_df.groupby(["Cluster", "Zone"])["Elapsed Time"].sum().reset_index()
+            grouped_elapsed["Total Reedemed Hour"] = grouped_elapsed["Elapsed Time"].apply(convert_to_decimal_hours)
 
-if os.path.exists(user_file_path):
-    user_df = pd.read_excel(user_file_path)
+            tenant_total_elapsed[tenant] = grouped_elapsed
 
-    if "Zone" in user_df.columns and "Name" in user_df.columns:
-        zone_list = user_df['Zone'].unique()
-        selected_zone = st.sidebar.selectbox("Select Zone", options=zone_list)
+    except Exception as e:
+        st.error(f"Error processing Total Elapse Till Date: {e}")
 
-        if selected_zone:
-            current_name = user_df.loc[user_df['Zone'] == selected_zone, 'Name'].values[0]
-            new_name = st.sidebar.text_input("Update Name", value=current_name)
+# Merge Overall and Tenant-Specific Data
+if rms_site_file and alarm_history_file and grid_data_file and total_elapse_file:
+    try:
+        for tenant, tenant_merged in tenant_merged_data.items():
+            grid_data = tenant_zone_grid.get(tenant, pd.DataFrame())
 
-            if st.sidebar.button("🔄Update Concern"):
-                success, message = update_zone_user(selected_zone, new_name, user_file_path)
-                if success:
-                    st.sidebar.success(message)
-                else:
-                    st.sidebar.error(message)
-    else:
-        st.sidebar.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
-else:
-    st.sidebar.error("USER NAME.xlsx file not found in the repository.")
+            merged_tenant_final = pd.merge(
+                tenant_merged,
+                grid_data[["Cluster", "Zone", "AC Availability (%)"]],
+                on=["Cluster", "Zone"],
+                how="left"
+            )
 
-#Download Option
+            merged_tenant_final["Grid Availability"] = merged_tenant_final["AC Availability (%)"]
 
-from io import BytesIO
-from datetime import datetime
+            total_elapsed_data = tenant_total_elapsed.get(tenant, pd.DataFrame())
+            merged_tenant_final = pd.merge(
+                merged_tenant_final,
+                total_elapsed_data[["Cluster", "Zone", "Total Reedemed Hour"]],
+                on=["Cluster", "Zone"],
+                how="left"
+            )
 
-# Function to convert dataframes into an Excel file with multiple sheets
-@st.cache_data
-def convert_df_to_excel_with_sheets(unmatched_df, rms_df, current_alarms_df, site_access_df):
-    # Filter unmatched data to show only the required columns
-    filtered_unmatched_df = unmatched_df[['Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']]
+            numeric_columns = ["Total Site Count", "Total Affected Site", "Elapsed Time (Decimal)", "Total Reedemed Hour"]
+            merged_tenant_final[numeric_columns] = merged_tenant_final[numeric_columns].fillna(0).astype(float)
 
-    # Create an Excel file in memory
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        # Add unmatched data sheet
-        filtered_unmatched_df.to_excel(writer, index=False, sheet_name='Unmatched Data')
-        
-        # Add raw RMS Data sheet
-        rms_df.to_excel(writer, index=False, sheet_name='RMS Data')
+            merged_tenant_final["Total Allowable Limit (Hr)"] = merged_tenant_final["Total Site Count"] * 24 * 30 * (1 - 0.9985)
+            merged_tenant_final["Remaining Hour"] = merged_tenant_final["Total Allowable Limit (Hr)"] - merged_tenant_final["Total Reedemed Hour"]
 
-        # Add raw Current Alarms sheet
-        current_alarms_df.to_excel(writer, index=False, sheet_name='Current Alarms')
+            st.subheader(f"Tenant: {tenant} - Final Merged Table")
+            st.dataframe(
+                merged_tenant_final[
+                    [
+                        "Cluster",
+                        "Zone",
+                        "Total Site Count",
+                        "Total Affected Site",
+                        "Elapsed Time (Decimal)",
+                        "Grid Availability",
+                        "Total Reedemed Hour",
+                        "Total Allowable Limit (Hr)",
+                        "Remaining Hour"
+                    ]
+                ]
+            )
 
-        # Add raw Site Access Data sheet
-        site_access_df.to_excel(writer, index=False, sheet_name='Site Access Data')
+        combined_grid_data = df_grid_data.groupby(["Cluster", "Zone"]).agg({
+            "AC Availability (%)": "mean",
+        }).reset_index()
 
-        # Access the workbook for formatting
-        workbook = writer.book
+        overall_final_merged = pd.merge(
+            merged_all_tenants.groupby(["Cluster", "Zone"]).sum().reset_index(),
+            combined_grid_data,
+            on=["Cluster", "Zone"],
+            how="left"
+        )
 
-        # Format each sheet with auto-adjusted column widths and table style
-        for sheet_name, df in [
-            ('Unmatched Data', filtered_unmatched_df),
-            ('RMS Data', rms_df),
-            ('Current Alarms', current_alarms_df),
-            ('Site Access Data', site_access_df)
-        ]:
-            worksheet = writer.sheets[sheet_name]
-            for i, column in enumerate(df.columns):
-                max_len = max(df[column].astype(str).map(len).max(), len(column)) + 2
-                worksheet.set_column(i, i, max_len)
+        overall_final_merged["Grid Availability"] = overall_final_merged["AC Availability (%)"]
 
-            # Apply table formatting if this is the Unmatched Data sheet
-            if sheet_name == 'Unmatched Data':
-                table_range = f'A1:E{len(filtered_unmatched_df) + 1}'  # Adjust range for headers and data
-                worksheet.add_table(table_range, {
-                    'columns': [{'header': col} for col in filtered_unmatched_df.columns],
-                    'style': 'Table Style Medium 9',
-                })
+        overall_elapsed = (
+            df_total_elapse.groupby(["Cluster", "Zone"])["Elapsed Time"]
+            .sum()
+            .reset_index()
+        )
+        overall_elapsed["Total Reedemed Hour"] = overall_elapsed["Elapsed Time"].apply(convert_to_decimal_hours)
 
-    return output.getvalue()
+        overall_final_merged = pd.merge(
+            overall_final_merged,
+            overall_elapsed[["Cluster", "Zone", "Total Reedemed Hour"]],
+            on=["Cluster", "Zone"],
+            how="left"
+        )
 
-# Generate the Excel file only if there is data
-if site_access_file and rms_file and current_alarms_file:
-    # Generate the file name with current timestamp
-    timestamp = datetime.now().strftime("%d%m%y%H%M%S")
-    file_name = f"UnauthorizedAccess_{timestamp}.xlsx"
+        overall_final_merged["Total Allowable Limit (Hr)"] = overall_final_merged["Total Site Count"] * 24 * 30 * (1 - 0.9985)
+        overall_final_merged["Remaining Hour"] = overall_final_merged["Total Allowable Limit (Hr)"] - overall_final_merged["Total Reedemed Hour"].astype(float)
 
-    # Generate the Excel data with all sheets
-    excel_data = convert_df_to_excel_with_sheets(mismatches_df, rms_df, current_alarms_df, site_access_df)
+        st.subheader("Overall Final Merged Table")
+        st.dataframe(
+            overall_final_merged[
+                [
+                    "Cluster",
+                    "Zone",
+                    "Total Site Count",
+                    "Total Affected Site",
+                    "Elapsed Time (Decimal)",
+                    "Grid Availability",
+                    "Total Reedemed Hour",
+                    "Total Allowable Limit (Hr)",
+                    "Remaining Hour"
+                ]
+            ]
+        )
 
-    # Add a download button in the sidebar
-    st.sidebar.download_button(
-        label="📂 Download Data",
-        data=excel_data,
-        file_name=file_name,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-else:
-    st.sidebar.write("Please upload all required files to enable data download.")
-
-
-# Telegram Notification Option
-if st.sidebar.button("💬 Send Notification"):
-    # Ensure user has updated zone names before sending notifications
-    if os.path.exists(user_file_path):
-        user_df = pd.read_excel(user_file_path)
-
-        # Ensure proper column names
-        if "Zone" in user_df.columns and "Name" in user_df.columns:
-            # Create a mapping of Zone to Name
-            zone_to_name = user_df.set_index("Zone")["Name"].to_dict()
-
-            # Iterate over zones in mismatched data and send notifications
-            zones = filtered_mismatches_df['Zone'].unique()
-            bot_token = "7145427044:AAGb-CcT8zF_XYkutnqqCdNLqf6qw4KgqME"
-            chat_id = "-1001509039244"
-
-            for zone in zones:
-                zone_df = filtered_mismatches_df[filtered_mismatches_df['Zone'] == zone]
-
-                # Sort by 'End Time', putting 'Not Closed' at the top
-                zone_df['End Time'] = zone_df['End Time'].replace("Not Closed", None)
-                sorted_zone_df = zone_df.sort_values(by='End Time', na_position='first')
-                sorted_zone_df['End Time'] = sorted_zone_df['End Time'].fillna("Not Closed")
-
-                message = f"❗Door Open Notification❗\n\n🚩 {zone}\n\n"
-                site_aliases = sorted_zone_df['Site Alias'].unique()
-
-                for site_alias in site_aliases:
-                    site_df = sorted_zone_df[sorted_zone_df['Site Alias'] == site_alias]
-                    message += f"✔ {site_alias}\n"
-                    for _, row in site_df.iterrows():
-                        end_time_display = row['End Time']
-                        message += f"  • Start Time: {row['Start Time']} | End Time: {end_time_display}\n"
-                    message += "\n"
-
-                # Append mention of the responsible person for the zone
-                if zone in zone_to_name:
-                    # Escape underscores in the name
-                    escaped_name = zone_to_name[zone].replace("_", "\\_")
-                    message += f"**@{escaped_name}**, no Site Access Request found for these Door Open alarms. Please take care and share us update.\n"
-
-                # Send the plain-text message
-                payload = {
-                    "chat_id": chat_id,
-                    "text": message,
-                    "parse_mode": "Markdown"
-                }
-                url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-                response = requests.post(url, json=payload)
-
-                if response.status_code == 200:
-                    st.success(f"Notification for zone '{zone}' sent successfully!")
-                else:
-                    st.error(f"Failed to send notification for zone '{zone}'.")
-        else:
-            st.error("The USER NAME.xlsx file must have 'Zone' and 'Name' columns.")
-    else:
-        st.error("USER NAME.xlsx file not found in the repository.")
+    except Exception as e:
+        st.error(f"Error merging data: {e}")
