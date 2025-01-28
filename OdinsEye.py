@@ -13,8 +13,8 @@ def merge_rms_alarms(rms_df, alarms_df):
     alarms_df['Start Time'] = alarms_df['Alarm Time']
     alarms_df['End Time'] = pd.NaT  # No End Time in Current Alarms, set to NaT
 
-    rms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
-    alarms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
+    rms_columns = ['Site', 'Site Alias ', 'Zone', 'Cluster', 'Start Time', 'End Time']
+    alarms_columns = ['Site', 'Site Alias ', 'Zone', 'Cluster', 'Start Time', 'End Time']
 
     merged_df = pd.concat([rms_df[rms_columns], alarms_df[alarms_columns]], ignore_index=True)
     return merged_df
@@ -51,8 +51,8 @@ def display_grouped_data(grouped_df, title):
         for zone in zones:
             st.markdown(f"***<span style='font-size:14px;'>{zone}</span>***", unsafe_allow_html=True)
             zone_df = cluster_df[cluster_df['Zone'] == zone]
-            display_df = zone_df[['Site Alias', 'Start Time', 'End Time']].copy()
-            display_df['Site Alias'] = display_df['Site Alias'].where(display_df['Site Alias'] != display_df['Site Alias'].shift())
+            display_df = zone_df[['Site Alias ', 'Start Time', 'End Time']].copy()
+            display_df['Site Alias '] = display_df['Site Alias '].where(display_df['Site Alias '] != display_df['Site Alias '].shift())
             display_df = display_df.fillna('')
             st.table(display_df)
         st.markdown("---")
@@ -63,7 +63,7 @@ def display_matched_sites(matched_df):
     def highlight_status(status):
         return color_map.get(status, '')
 
-    styled_df = matched_df[['RequestId', 'Site Alias', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
+    styled_df = matched_df[['RequestId', 'Site Alias ', 'Start Time', 'End Time', 'EndDate', 'Status']].style.applymap(highlight_status, subset=['Status'])
     st.write("Matched Sites with Status:")
     st.dataframe(styled_df)
 
@@ -207,7 +207,7 @@ from datetime import datetime
 @st.cache_data
 def convert_df_to_excel_with_sheets(unmatched_df, rms_df, current_alarms_df, site_access_df):
     # Filter unmatched data to show only the required columns
-    filtered_unmatched_df = unmatched_df[['Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']]
+    filtered_unmatched_df = unmatched_df[['Site Alias ', 'Zone', 'Cluster', 'Start Time', 'End Time']]
 
     # Create an Excel file in memory
     output = BytesIO()
@@ -294,10 +294,10 @@ if st.sidebar.button("💬 Send Notification"):
                 sorted_zone_df['End Time'] = sorted_zone_df['End Time'].fillna("Not Closed")
 
                 message = f"❗Door Open Notification❗\n\n🚩 {zone}\n\n"
-                site_aliases = sorted_zone_df['Site Alias'].unique()
+                site_aliases = sorted_zone_df['Site Alias '].unique()
 
                 for site_alias in site_aliases:
-                    site_df = sorted_zone_df[sorted_zone_df['Site Alias'] == site_alias]
+                    site_df = sorted_zone_df[sorted_zone_df['Site Alias '] == site_alias]
                     message += f"✔ {site_alias}\n"
                     for _, row in site_df.iterrows():
                         end_time_display = row['End Time']
