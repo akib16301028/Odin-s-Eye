@@ -21,8 +21,8 @@ def merge_rms_alarms(rms_df, alarms_df):
     alarms_df['Start Time'] = alarms_df['Alarm Time']
     alarms_df['End Time'] = pd.NaT  # No End Time in Current Alarms, set to NaT
     
-    rms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
-    alarms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
+    rms_columns = ['Site', 'Zone', 'Cluster', 'Start Time', 'End Time']
+    alarms_columns = ['Site', 'Zone', 'Cluster', 'Start Time', 'End Time']
     
     merged_df = pd.concat([rms_df[rms_columns], alarms_df[alarms_columns]], ignore_index=True)
     return merged_df
@@ -97,7 +97,7 @@ if site_access_file and rms_file and current_alarms_file:
     matched_df = find_matched_sites(site_access_df, merged_rms_alarms_df)
 
     # Apply filtering conditions
-    status_filter_condition = matched_df['Status'] == st.session_state.status_filter if st.session_state.status_filter != "All" else True
+    status_filter_condition = matched_df['Status'].isin(["Valid", "Expired"]) if st.session_state.status_filter == "All" else matched_df['Status'] == st.session_state.status_filter
     time_filter_condition = (matched_df['Start Time'] > filter_datetime) | (matched_df['End Time'] > filter_datetime)
 
     # Apply filters to matched data
@@ -110,16 +110,17 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-# Display mismatches
+    # Display mismatches
     if not filtered_mismatches_df.empty:
-        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
+        st.write(f"Mismatched Sites (After {filter_datetime}):")
+        st.dataframe(filtered_mismatches_df)
     else:
         st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-        display_grouped_data(mismatches_df, "All Mismatched Sites")
+        st.dataframe(mismatches_df)
 
     # Display matched sites
-    display_matched_sites(filtered_matched_df)
+    st.write("Matched Sites:")
+    st.dataframe(filtered_matched_df)
 
 # Function to update the user name for a specific zone
 def update_zone_user(zone, new_name, user_file_path):
@@ -139,6 +140,7 @@ def update_zone_user(zone, new_name, user_file_path):
             return False, "The USER NAME.xlsx file must have 'Zone' and 'Name' columns."
     else:
         return False, "USER NAME.xlsx file not found in the repository."
+
 
 # Streamlit Sidebar
 st.sidebar.title("Options")
