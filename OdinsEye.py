@@ -1,8 +1,8 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
-import requests  # For sending Telegram notifications
-import os  # For file path operations
+import requests
+import os
 
 # Function to clean column names by stripping leading/trailing spaces
 def clean_column_names(df):
@@ -22,6 +22,7 @@ def merge_rms_alarms(rms_df, alarms_df):
     alarms_columns = ['Site', 'Site Alias', 'Zone', 'Cluster', 'Start Time', 'End Time']
 
     merged_df = pd.concat([rms_df[rms_columns], alarms_df[alarms_columns]], ignore_index=True)
+    merged_df['Site Alias'] = merged_df['Site Alias'].ffill()  # Forward fill missing values
     return merged_df
 
 # Function to find mismatches between Site Access and merged RMS/Alarms dataset
@@ -29,19 +30,9 @@ def find_mismatches(site_access_df, merged_df):
     site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
     merged_comparison_df = pd.merge(merged_df, site_access_df, left_on='Site', right_on='SiteName_Extracted', how='left', indicator=True)
     mismatches_df = merged_comparison_df[merged_comparison_df['_merge'] == 'left_only']
+    mismatches_df['Site Alias'] = mismatches_df['Site Alias'].ffill()  # Forward fill missing values
     mismatches_df['End Time'] = mismatches_df['End Time'].fillna('Not Closed')  # Replace NaT with Not Closed
     return mismatches_df
-
-# Function to find matched sites and their status
-def find_matched_sites(site_access_df, merged_df):
-    site_access_df['SiteName_Extracted'] = site_access_df['SiteName'].apply(extract_site)
-    matched_df = pd.merge(site_access_df, merged_df, left_on='SiteName_Extracted', right_on='Site', how='inner')
-    matched_df['StartDate'] = pd.to_datetime(matched_df['StartDate'], errors='coerce')
-    matched_df['EndDate'] = pd.to_datetime(matched_df['EndDate'], errors='coerce')
-    matched_df['Start Time'] = pd.to_datetime(matched_df['Start Time'], errors='coerce')
-    matched_df['End Time'] = pd.to_datetime(matched_df['End Time'], errors='coerce')
-    matched_df['Status'] = matched_df.apply(lambda row: 'Expired' if pd.notnull(row['End Time']) and row['End Time'] > row['EndDate'] else 'Valid', axis=1)
-    return matched_df
 
 # Function to display grouped data by Cluster and Zone in a table
 def display_grouped_data(grouped_df, title):
