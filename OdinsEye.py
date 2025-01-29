@@ -4,9 +4,9 @@ from datetime import datetime
 import requests  # For sending Telegram notifications
 import os  # For file path operations
 
-# Function to clean column names by stripping spaces
+# Function to clean column names by stripping spaces and removing trailing spaces
 def clean_column_names(df):
-    df.columns = df.columns.str.strip()
+    df.columns = df.columns.str.strip().str.rstrip()
     return df
 
 # Function to extract the first part of the SiteName before the first underscore
@@ -110,21 +110,11 @@ if site_access_file and rms_file and current_alarms_file:
     if status_filter != st.session_state.status_filter:
         st.session_state.status_filter = status_filter
 
-    # Display mismatches
-    if not filtered_mismatches_df.empty:
-        st.write(f"Mismatched Sites (After {filter_datetime}) grouped by Cluster and Zone:")
-        display_grouped_data(filtered_mismatches_df, "Filtered Mismatched Sites")
-    else:
-        st.write(f"No mismatches found after {filter_datetime}. Showing all mismatched sites.")
-        display_grouped_data(mismatches_df, "All Mismatched Sites")
-
-    # Display matched sites
-    display_matched_sites(filtered_matched_df)
-
 # Function to update the user name for a specific zone
 def update_zone_user(zone, new_name, user_file_path):
     if os.path.exists(user_file_path):
         user_df = pd.read_excel(user_file_path)
+        user_df = clean_column_names(user_df)
 
         # Ensure proper column names
         if "Zone" in user_df.columns and "Name" in user_df.columns:
