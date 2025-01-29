@@ -8,6 +8,9 @@ import os  # For file path operations
 def extract_site(site_name):
     return site_name.split('_')[0] if pd.notnull(site_name) and '_' in site_name else site_name
 
+
+
+
 # Function to merge RMS and Current Alarms data
 def merge_rms_alarms(rms_df, alarms_df):
     alarms_df['Start Time'] = alarms_df['Alarm Time']
@@ -18,6 +21,11 @@ def merge_rms_alarms(rms_df, alarms_df):
 
     merged_df = pd.concat([rms_df[rms_columns], alarms_df[alarms_columns]], ignore_index=True)
     return merged_df
+
+def clean_column_names(df):
+    """Removes trailing spaces from column names."""
+    df.rms_columns = df.columns.str.rstrip()
+    return df
 
 # Function to find mismatches between Site Access and merged RMS/Alarms dataset
 def find_mismatches(site_access_df, merged_df):
@@ -81,22 +89,9 @@ def send_telegram_notification(message, bot_token, chat_id):
 # Streamlit app
 st.title('🛡️IntrusionShield🛡️')
 
-def clean_column_names(df):
-    """Removes trailing spaces from column names."""
-    df.columns = df.columns.str.rstrip()
-    return df
-
-# Example usage with uploaded files
 site_access_file = st.file_uploader("Upload the Site Access Data", type=["xlsx"])
 rms_file = st.file_uploader("Upload the All Door Open Alarms Data till now", type=["xlsx"])
 current_alarms_file = st.file_uploader("Upload the Current Door Open Alarms Data", type=["xlsx"])
-
-if site_access_file and rms_file and current_alarms_file:
-    site_access_df = clean_column_names(pd.read_excel(site_access_file))
-    rms_df = clean_column_names(pd.read_excel(rms_file, header=2))
-    current_alarms_df = clean_column_names(pd.read_excel(current_alarms_file, header=2))
-    
-    st.write("Column names cleaned successfully!")
 
 if "filter_time" not in st.session_state:
     st.session_state.filter_time = datetime.now().time()
